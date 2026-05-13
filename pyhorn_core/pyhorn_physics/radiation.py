@@ -190,13 +190,14 @@ def _circular_piston_radiation_impedance(
     # =========================================================================
 
     if ka < 0.1:
-        R_rad = Zc * (ka ** 2) / 2.0
+        # Levine/Inglis small-ka limit: R_rad → Zc·(ka)⁴/4  [O(ka⁴)]
+        R_rad = Zc * (ka ** 4) / 4.0
         X_rad = Zc * 8.0 * ka / (3.0 * np.pi)
     else:
-        # 2*J1(x)/x
-        j1_term = 2.0 * jv(1, 2.0 * ka) / (2.0 * ka)
-        R_rad = Zc * (1.0 - j1_term)
-        # H1(x) / (x/2) = 2*H1(x)/x = H1(2ka)/ka
+        # Levine/Inglis: R_rad = Zc·[1 − (J₁(2ka)/(ka))²]
+        # Note: the square is essential — this is the Rayleigh integral for a piston
+        j1_ratio = jv(1, 2.0 * ka) / ka
+        R_rad = Zc * (1.0 - j1_ratio ** 2)
         X_rad = Zc * struve(1, 2.0 * ka) / ka
 
     R_rad *= (2.0 * np.pi) / ang

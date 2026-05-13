@@ -1719,7 +1719,12 @@ def _horn_response_impl(
                 total_pressure_out = direct_pressure_out + horn_pressure_out
             else:
                 total_pressure_out = direct_pressure_out
-            spl_out = _pressure_to_spl(total_pressure_out)
+                
+            new_spl_out = _pressure_to_spl(total_pressure_out)
+            if spl_power_based_out is not None:
+                spl_power_based_out += (new_spl_out - spl_out)
+            
+            spl_out = new_spl_out
 
     phase = np.unwrap(np.angle(total_pressure_out))
     omega_arr = 2 * np.pi * freqs

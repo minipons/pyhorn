@@ -141,7 +141,7 @@ def plot_simulation_results(
             if result.direct_spl is not None:
                 ax.semilogx(freqs, result.direct_spl, color=_COLORS["direct"], linestyle="--", linewidth=0.7, label="Direct (cone)", alpha=0.7)
             if result.horn_spl is not None:
-                ax.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linestyle="--", linewidth=0.7, label="Horn", alpha=0.7)
+                ax.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linestyle="--", linewidth=0.7, label="Horn", alpha=0.3)
             if result.spl_power_based is not None:
                 ax.semilogx(freqs, result.spl_power_based, color="#16a34a", linewidth=0.9, label="dB/W/m (calibrated)", alpha=0.85)
         if hasattr(result, "ib_spl") and result.ib_spl is not None:
@@ -284,7 +284,7 @@ def plot_simulation_results(
     if output_mode == "horn" and result.horn_spl is not None:
         primary_spl = result.horn_spl
         primary_label = "Horn"
-        ax1.semilogx(freqs, primary_spl, color=_COLORS["horn"], linewidth=0.8, label=primary_label)
+        ax1.semilogx(freqs, primary_spl, color=_COLORS["horn"], linewidth=0.8, label=primary_label, alpha=0.3)
         if result.spl is not None:
             ax1.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
         if result.direct_spl is not None:
@@ -296,11 +296,12 @@ def plot_simulation_results(
         if result.spl is not None:
             ax1.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
         if result.horn_spl is not None:
-            ax1.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linewidth=0.5, linestyle=":", label="Horn (ref)", alpha=0.6)
+            ax1.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linewidth=0.5, linestyle=":", label="Horn (ref)", alpha=0.3)
     else:
         # combined (default) — show total as primary, components as dashed overlays
         primary_spl = result.spl
         ax1.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.8, label="Total")
+
         if result.direct_spl is not None:
             ax1.semilogx(
                 freqs,
@@ -318,6 +319,7 @@ def plot_simulation_results(
                 linestyle="--",
                 linewidth=0.7,
                 label="Horn",
+                alpha=0.3,
             )
         if result.spl_power_based is not None:
             ax1.semilogx(
