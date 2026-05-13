@@ -7,7 +7,11 @@ from typing import Optional
 import typer
 import yaml
 
-from pyhorn_registry import Registry, registry
+try:
+    from pyhorn_registry import Registry, registry
+except ImportError:
+    Registry = None
+    registry = None
 
 app = typer.Typer(help="Manage the pyhorn driver and project registry")
 

@@ -7,9 +7,14 @@ import numpy as np
 from scipy.special import j1
 
 from pyhorn_core.solver.models import RHO, C
-from pyhorn_fold import (
-    throat_chamber_side_length as _throat_chamber_side_length,
-)
+# pyhorn_fold is a separate package — stub out if not installed
+try:
+    from pyhorn_fold import (
+        throat_chamber_side_length as _throat_chamber_side_length,
+    )
+except ImportError:
+    def _throat_chamber_side_length(*args, **kwargs):
+        return None
 
 
 # Default off-axis angles for piston directivity computation

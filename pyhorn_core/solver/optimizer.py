@@ -41,7 +41,6 @@ from pyhorn_core.pyhorn_physics import C
 from pyhorn_core.pyhorn_physics.orchestrators import horn_response  # noqa: N811
 from pyhorn_core.solver.scoring import compute_response_metrics
 from pyhorn_core.solver.profiles import profile_area_at_distance  # noqa: F401
-from pyhorn_core.solver.folding import extrapolate_folded_horn  # re-export for backward compat
 
 PROFILE_TYPES = list(ALL_PROFILE_TYPES)
 

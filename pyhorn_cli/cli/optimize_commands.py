@@ -9,7 +9,12 @@ import yaml
 
 from pyhorn_core.config.parser import parse_driver_specs, parse_horn_geometry
 from pyhorn_core.solver.models import horn_response, C
-from pyhorn_fold import extrapolate_folded_horn
+try:
+    from pyhorn_fold import extrapolate_folded_horn
+    _HAS_PYHORN_FOLD = True
+except ImportError:
+    extrapolate_folded_horn = None
+    _HAS_PYHORN_FOLD = False
 from pyhorn_core.output.plotter import plot_horn_2d_folded
 from pyhorn_core.solver.optimizer import (
     OptimizationConfig,
@@ -320,6 +325,14 @@ def optimize(
         enclosure_dims = (float(enclosure_depth), float(enclosure_height))
         driver_coord = (float(driver_x), float(driver_y))
 
+        if not _HAS_PYHORN_FOLD:
+            raise typer.Exit(
+                code=1,
+                message="pyhorn_fold is required for optimization. "
+                        "Install with: pip install pyhorn-fold "
+                        "or use: pip install -e ../pyhorn_exp/pyhorn_fold",
+            )
+
         for i, r in enumerate(results[: config.top_n]):
             folded_horn = extrapolate_folded_horn(
                 r.horn,
@@ -410,6 +423,13 @@ def fold_optimized(
     plot: bool = typer.Option(True, help="Generate a folded 2D plot"),
 ):
     """Create a folded horn layout from an optimized horn YAML."""
+    if not _HAS_PYHORN_FOLD:
+        raise typer.Exit(
+            code=1,
+            message="pyhorn_fold is required for fold-optimized. "
+                    "Install with: pip install pyhorn-fold "
+                    "or use: pip install -e ../pyhorn_exp/pyhorn_fold",
+        )
     try:
         horn = parse_horn_geometry(optimized_horn)
         folded_horn = extrapolate_folded_horn(
