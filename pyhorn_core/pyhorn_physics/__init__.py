@@ -920,9 +920,7 @@ def _displacement(v_driver: complex, f: float) -> complex:
 
 
 def _excursion(x_driver: complex) -> float:
-    """Peak peak-to-peak excursion in mm from complex displacement.
-
-    Uses √2 factor to convert RMS → peak, then × 2 for peak-to-peak.
+    """Peak excursion in mm from complex displacement.
 
     Parameters
     ----------
@@ -930,9 +928,9 @@ def _excursion(x_driver: complex) -> float:
 
     Returns
     -------
-    float — peak-to-peak excursion in mm
+    float — peak excursion in mm
     """
-    return np.abs(x_driver) * 1000.0 * 2.0 * np.sqrt(2.0)
+    return np.abs(x_driver) * 1000.0
 
 
 # ─── Horn analysis helpers ─────────────────────────────────────────────────────
