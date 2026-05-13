@@ -1,19 +1,42 @@
+# Byte-compiled / optimized
 __pycache__/
 *.py[cod]
+*.pyc
 *.so
 .Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts
 build/
 dist/
 *.egg-info/
 *.egg
-.venv/
-venv/
-env/
+
+# Test outputs
 .pytest_cache/
-.tox/
-*.egg-info/
+.coverage
+coverage.xml
 htmlcov/
-.coverage*
-*.log
-.pytest_cache/
 .mypy_cache/
+.tox/
+
+# Project outputs
+outputs/
+geometry/
+GdB/
+references/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+.ipynb_checkpoints/
+
+# Misc
+*.log
+uv.lock
