@@ -101,8 +101,8 @@ class DriverSpecs:
     def get_spl_response(self, freqs: np.ndarray) -> Optional[np.ndarray]:
         """Return measured driver SPL response at the given frequencies, or None.
 
-        Linearly interpolates the (N, 2) ``spl_response`` table in log-frequency
-        space.  Extrapolates by holding the endpoint value.
+        Smoothly interpolates the (N, 2) ``spl_response`` table in log-frequency
+        space using PchipInterpolator. Extrapolates by holding the endpoint value.
         """
         sr = self.spl_response
         if sr is None:
@@ -114,7 +114,17 @@ class DriverSpecs:
         table_db = arr[:, 1]
         log_f = np.log10(np.maximum(freqs, 1e-6))
         log_tf = np.log10(np.maximum(table_f, 1e-6))
-        return np.interp(log_f, log_tf, table_db, left=table_db[0], right=table_db[-1])
+        
+        try:
+            from scipy.interpolate import PchipInterpolator
+            interp = PchipInterpolator(log_tf, table_db, extrapolate=False)
+            result = interp(log_f)
+            # Apply constant extrapolation for out-of-bounds frequencies
+            result[log_f < log_tf[0]] = table_db[0]
+            result[log_f > log_tf[-1]] = table_db[-1]
+            return result
+        except ImportError:
+            return np.interp(log_f, log_tf, table_db, left=table_db[0], right=table_db[-1])
 
     @property
     def reference_spl(self) -> float:

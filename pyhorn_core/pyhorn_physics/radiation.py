@@ -149,20 +149,20 @@ def _circular_piston_radiation_impedance(
     freq: float, mouth_area: float, ang: float, Zc: float, a: float
 ) -> complex:
     """
-    Exact Levine/Inglis radiation impedance for a circular piston in an infinite baffle.
-    Uses the full Bessel and Struve function formulas, valid for all ka.
+    Exact radiation impedance for a rigid circular piston in an infinite baffle.
+    Uses the analytical Bessel and Struve function formulas, valid for all ka.
 
     Z_rad = R_rad + j·X_rad
 
     where:
-        R_rad = Zc · [1 − (J₁(2ka) / (2·ka))²]
-        X_rad = Zc · (2/π) · [ka · H₀(2ka) − H₁(2ka)]
+        R_rad = Zc · [1 − 2·J₁(2ka) / (2·ka)]
+        X_rad = Zc · H₁(2ka) / ka
 
     Small-ka limits:
-        R_rad → Zc · (ka)⁴/4   (O(ka⁴), not O(ka²))
-        X_rad → Zc · 8ka/3π   (O(ka))
+        R_rad → Zc · (ka)²/2   (O(ka²))
+        X_rad → Zc · 8ka/3π    (O(ka))
 
-    Ref: Levine & Schwinger (1950); Morse & Ingard §9.3 (1968).
+    Ref: Beranek (1954) Acoustics; Kinsler & Frey.
     """
     k = 2 * np.pi * freq / C
     ka = k * a
@@ -171,12 +171,14 @@ def _circular_piston_radiation_impedance(
         return 0.0 + 0.0j
 
     if ka < 0.1:
-        R_rad = Zc * (ka ** 4) / 4.0
+        R_rad = Zc * (ka ** 2) / 2.0
         X_rad = Zc * 8.0 * ka / (3.0 * np.pi)
     else:
-        j1_ratio = jv(1, 2.0 * ka) / (2.0 * ka)
-        R_rad = Zc * (1.0 - j1_ratio**2)
-        X_rad = Zc * (2.0 / np.pi) * (ka * struve(0, 2.0 * ka) - struve(1, 2.0 * ka))
+        # 2*J1(x)/x
+        j1_term = 2.0 * jv(1, 2.0 * ka) / (2.0 * ka)
+        R_rad = Zc * (1.0 - j1_term)
+        # H1(x) / (x/2) = 2*H1(x)/x = H1(2ka)/ka
+        X_rad = Zc * struve(1, 2.0 * ka) / ka
 
     R_rad *= (2.0 * np.pi) / ang
     X_rad *= (2.0 * np.pi) / ang
