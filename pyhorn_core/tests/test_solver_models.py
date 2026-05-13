@@ -2,7 +2,14 @@
 
 import numpy as np
 import pytest
-from pyhorn_core.config.models import DriverSpecs, HornGeometry, Section, CompoundChamber, TappedHornGeometry, RearChamber
+from pyhorn_core.config.models import (
+    DriverSpecs,
+    HornGeometry,
+    Section,
+    CompoundChamber,
+    TappedHornGeometry,
+    RearChamber,
+)
 from pyhorn_core.solver import models
 
 
@@ -135,8 +142,12 @@ class TestTubeSegmentTmatrix:
 
     def test_with_flow_resistivity_fr_nonzero(self):
         """When fr > 0, matrix entries should be complex (Miki absorption)."""
-        T_ideal = models.tube_segment_tmatrix(freq=200.0, length=0.05, area=0.01, fr=0.0)
-        T_absorptive = models.tube_segment_tmatrix(freq=200.0, length=0.05, area=0.01, fr=5000.0)
+        T_ideal = models.tube_segment_tmatrix(
+            freq=200.0, length=0.05, area=0.01, fr=0.0
+        )
+        T_absorptive = models.tube_segment_tmatrix(
+            freq=200.0, length=0.05, area=0.01, fr=5000.0
+        )
         # With absorption, entries should differ (and be complex)
         assert np.iscomplexobj(T_absorptive)
 
@@ -166,34 +177,33 @@ class TestAreaStepTmatrix:
     def test_unknown_lem_model_raises(self):
         """Unknown lem_model should raise ValueError."""
         with pytest.raises(ValueError, match="Unknown LEM step model"):
-            models.area_step_tmatrix(freq=1000.0, area1=0.01, area2=0.02, lem_model="unknown")
+            models.area_step_tmatrix(
+                freq=1000.0, area1=0.01, area2=0.02, lem_model="unknown"
+            )
 
     def test_basic_lem_model_produces_nonzero_imaginary_part(self):
         """lem_model='basic' should produce complex entries (Z_series ≠ 0)."""
         T = models.area_step_tmatrix(
-            freq=200.0, area1=0.01, area2=0.02,
-            lem_model="basic", lem_strength=1.0
+            freq=200.0, area1=0.01, area2=0.02, lem_model="basic", lem_strength=1.0
         )
         assert np.iscomplexobj(T)
         # T[0,1] = Z_series * ratio, and Z_series has imaginary part
         assert T[0, 1] != pytest.approx(0.0)
         # T should differ from the ideal (no-LEM) step matrix
         T_ideal = models.area_step_tmatrix(
-            freq=200.0, area1=0.01, area2=0.02,
-            lem_model="ideal"
+            freq=200.0, area1=0.01, area2=0.02, lem_model="ideal"
         )
         assert not np.allclose(T, T_ideal)
 
     def test_basic_lem_determinant_equals_ratio(self):
         """LEM product matrix determinant = ratio (area1/area2), not 1.
-        
+
         The T_step matrix has det=ratio. Since T_series and T_shunt each have
         det=1, the overall determinant = ratio. For area1=0.01, area2=0.02,
         ratio = 0.5.
         """
         T = models.area_step_tmatrix(
-            freq=200.0, area1=0.01, area2=0.02,
-            lem_model="basic", lem_strength=1.0
+            freq=200.0, area1=0.01, area2=0.02, lem_model="basic", lem_strength=1.0
         )
         det = T[0, 0] * T[1, 1] - T[0, 1] * T[1, 0]
         assert det == pytest.approx(0.5 + 0j)
@@ -201,12 +211,10 @@ class TestAreaStepTmatrix:
     def test_basic_lem_expansion_vs_contraction(self):
         """For expansion (area2 > area1), a shunt compliance should appear."""
         T_exp = models.area_step_tmatrix(
-            freq=200.0, area1=0.01, area2=0.05,
-            lem_model="basic", lem_strength=1.0
+            freq=200.0, area1=0.01, area2=0.05, lem_model="basic", lem_strength=1.0
         )
         T_con = models.area_step_tmatrix(
-            freq=200.0, area1=0.05, area2=0.01,
-            lem_model="basic", lem_strength=1.0
+            freq=200.0, area1=0.05, area2=0.01, lem_model="basic", lem_strength=1.0
         )
         # Expansion has shunt (Y_shunt != 0); contraction has Y_shunt=0
         # The matrices should differ
@@ -266,7 +274,6 @@ class TestComplianceTmatrix:
         assert T.shape == (2, 2)
 
 
-
 class TestComplianceTmatrixLossy:
     """Tests for compliance_tmatrix() with flow resistivity (lossy closed tube model).
 
@@ -299,22 +306,28 @@ class TestComplianceTmatrixLossy:
         # T = [[1, 0], [Y_shunt, 1]], Y_shunt is the (1,0) entry
         Y_shunt = T[1, 0]
         assert np.isfinite(Y_shunt), f"Y_shunt should be finite, got {Y_shunt}"
-        assert np.isfinite(Y_shunt.imag), f"Y_shunt.imag should be finite, got {Y_shunt.imag}"
+        assert np.isfinite(
+            Y_shunt.imag
+        ), f"Y_shunt.imag should be finite, got {Y_shunt.imag}"
         # Y_shunt should be reactance-like (positive imaginary for a compliance)
         # Y = jωC for a lumped compliance; for a lossy closed tube the sign matches
-        assert Y_shunt.imag > 0, f"Y_shunt should be positive imaginary (compliance), got {Y_shunt}"
+        assert (
+            Y_shunt.imag > 0
+        ), f"Y_shunt should be positive imaginary (compliance), got {Y_shunt}"
 
     def test_shunt_impedance_more_inductive_with_frequency(self):
         """The shunt admittance should be increasingly inductive (positive imag) with frequency."""
         freqs = [100, 500, 1000]
         Y_vals = []
         for f in freqs:
-            T = models.compliance_tmatrix(freq=float(f), volume=0.0003, fr=5000.0, area=0.001)
+            T = models.compliance_tmatrix(
+                freq=float(f), volume=0.0003, fr=5000.0, area=0.001
+            )
             Y_vals.append(T[1, 0].imag)
         # Y = jωC → imaginary part should grow with frequency
-        assert Y_vals[2] > Y_vals[1] > Y_vals[0], (
-            f"Y_shunt.imag should increase with freq: {Y_vals}"
-        )
+        assert (
+            Y_vals[2] > Y_vals[1] > Y_vals[0]
+        ), f"Y_shunt.imag should increase with freq: {Y_vals}"
 
     def test_tmatrix_is_identity_when_kL_below_threshold(self):
         """When kL is below threshold, should return lumped compliance even with fr > 0."""
@@ -339,8 +352,12 @@ class TestComplianceTmatrixLossy:
         # Y_shunt should be purely imaginary-ish (compliance-dominated)
         # The real part from absorption losses should be small compared to imag
         ratio = abs(Y_shunt.real) / abs(Y_shunt.imag)
-        assert ratio < 1.0, f"Y_shunt should be compliance-dominated (real/imag < 1.0), got {ratio:.3f}"
-        assert ratio < 1.0, f"Y_shunt should be compliance-dominated (real/imag < 1.0), got {ratio:.3f}"
+        assert (
+            ratio < 1.0
+        ), f"Y_shunt should be compliance-dominated (real/imag < 1.0), got {ratio:.3f}"
+        assert (
+            ratio < 1.0
+        ), f"Y_shunt should be compliance-dominated (real/imag < 1.0), got {ratio:.3f}"
 
 
 class TestThroatAdapterTmatrix:
@@ -349,9 +366,16 @@ class TestThroatAdapterTmatrix:
     @pytest.fixture
     def make_horn(self):
         """Factory for HornGeometry with throat adapter attributes."""
-        def _horn(ap1=0.001, lpt=0.05, atc=0.001, throat_area=0.0005,
-                  throat_adapter_type="cylindrical"):
+
+        def _horn(
+            ap1=0.001,
+            lpt=0.05,
+            atc=0.001,
+            throat_area=0.0005,
+            throat_adapter_type="cylindrical",
+        ):
             from pyhorn_core.config.models import HornGeometry
+
             return HornGeometry(
                 ap1=ap1,
                 lpt=lpt,
@@ -359,6 +383,7 @@ class TestThroatAdapterTmatrix:
                 throat_area=throat_area,
                 throat_adapter_type=throat_adapter_type,
             )
+
         return _horn
 
     def test_returns_2x2_complex_array(self, make_horn):
@@ -373,8 +398,9 @@ class TestThroatAdapterTmatrix:
         When throat_adapter_type='cylindrical' and atc == ap1,
         the adapter matrix should equal tube_segment_tmatrix at the same frequency.
         """
-        horn = make_horn(ap1=0.002, lpt=0.03, atc=0.002,
-                         throat_adapter_type="cylindrical")
+        horn = make_horn(
+            ap1=0.002, lpt=0.03, atc=0.002, throat_adapter_type="cylindrical"
+        )
         T_adapter = models.throat_adapter_tmatrix(horn, freq=500.0)
         T_tube = models.tube_segment_tmatrix(freq=500.0, length=0.03, area=0.002)
         assert np.allclose(T_adapter, T_tube, rtol=1e-10)
@@ -382,43 +408,45 @@ class TestThroatAdapterTmatrix:
     def test_determinant_is_one_lossless(self, make_horn):
         """Lossless adapter matrix determinant should be exactly 1."""
         for profile in ("cylindrical", "conical", "exponential", "parabolic"):
-            horn = make_horn(ap1=0.001, lpt=0.04, atc=0.002,
-                             throat_adapter_type=profile)
+            horn = make_horn(
+                ap1=0.001, lpt=0.04, atc=0.002, throat_adapter_type=profile
+            )
             T = models.throat_adapter_tmatrix(horn, freq=800.0)
             det = T[0, 0] * T[1, 1] - T[0, 1] * T[1, 0]
-            assert abs(det - 1.0) < 1e-10, (
-                f"det(T) = {det} for {profile} adapter — should be 1"
-            )
+            assert (
+                abs(det - 1.0) < 1e-10
+            ), f"det(T) = {det} for {profile} adapter — should be 1"
 
     def test_conical_profile_not_identity(self, make_horn):
         """Conical expansion adapter should NOT return the identity matrix."""
-        horn = make_horn(ap1=0.003, lpt=0.05, atc=0.001,
-                         throat_adapter_type="conical")
+        horn = make_horn(ap1=0.003, lpt=0.05, atc=0.001, throat_adapter_type="conical")
         T = models.throat_adapter_tmatrix(horn, freq=300.0)
         identity = np.eye(2, dtype=complex)
-        assert not np.allclose(T, identity), (
-            "Conical adapter should differ from identity matrix"
-        )
+        assert not np.allclose(
+            T, identity
+        ), "Conical adapter should differ from identity matrix"
 
     def test_exponential_profile_not_identity(self, make_horn):
         """Exponential taper adapter should NOT return the identity matrix."""
-        horn = make_horn(ap1=0.003, lpt=0.05, atc=0.001,
-                         throat_adapter_type="exponential")
+        horn = make_horn(
+            ap1=0.003, lpt=0.05, atc=0.001, throat_adapter_type="exponential"
+        )
         T = models.throat_adapter_tmatrix(horn, freq=300.0)
         identity = np.eye(2, dtype=complex)
-        assert not np.allclose(T, identity), (
-            "Exponential adapter should differ from identity matrix"
-        )
+        assert not np.allclose(
+            T, identity
+        ), "Exponential adapter should differ from identity matrix"
 
     def test_parabolic_profile_not_identity(self, make_horn):
         """Parabolic taper adapter should NOT return the identity matrix."""
-        horn = make_horn(ap1=0.003, lpt=0.05, atc=0.001,
-                         throat_adapter_type="parabolic")
+        horn = make_horn(
+            ap1=0.003, lpt=0.05, atc=0.001, throat_adapter_type="parabolic"
+        )
         T = models.throat_adapter_tmatrix(horn, freq=300.0)
         identity = np.eye(2, dtype=complex)
-        assert not np.allclose(T, identity), (
-            "Parabolic adapter should differ from identity matrix"
-        )
+        assert not np.allclose(
+            T, identity
+        ), "Parabolic adapter should differ from identity matrix"
 
     def test_zero_ap1_returns_identity(self, make_horn):
         """ap1 <= 0 should return the 2×2 identity matrix."""
@@ -439,10 +467,12 @@ class TestThroatAdapterTmatrix:
         larger |B| than a cylindrical one at the same frequency/length because
         the average impedance is lower (larger area).
         """
-        horn_conical = make_horn(ap1=0.004, lpt=0.04, atc=0.001,
-                                throat_adapter_type="conical")
-        horn_cyl = make_horn(ap1=0.0025, lpt=0.04, atc=0.0025,
-                             throat_adapter_type="cylindrical")
+        horn_conical = make_horn(
+            ap1=0.004, lpt=0.04, atc=0.001, throat_adapter_type="conical"
+        )
+        horn_cyl = make_horn(
+            ap1=0.0025, lpt=0.04, atc=0.0025, throat_adapter_type="cylindrical"
+        )
         T_conical = models.throat_adapter_tmatrix(horn_conical, freq=400.0)
         T_cyl = models.throat_adapter_tmatrix(horn_cyl, freq=400.0)
         # |B| of the expansion adapter should be larger (lower Zc → larger B)
@@ -453,22 +483,26 @@ class TestThroatAdapterTmatrix:
 
     def test_with_flow_resistivity_entries_become_more_complex(self, make_horn):
         """With fr > 0 (Miki absorption), matrix entries should become lossy."""
-        horn = make_horn(ap1=0.002, lpt=0.04, atc=0.001,
-                         throat_adapter_type="conical")
+        horn = make_horn(ap1=0.002, lpt=0.04, atc=0.001, throat_adapter_type="conical")
         T_lossless = models.throat_adapter_tmatrix(horn, freq=500.0, fr=0.0)
         T_lossy = models.throat_adapter_tmatrix(horn, freq=500.0, fr=5000.0)
         # With absorption, entries should differ (Miki factors applied)
-        assert not np.allclose(T_lossless, T_lossy, rtol=1e-6), (
-            "With fr > 0 the matrix should differ from the lossless case"
-        )
+        assert not np.allclose(
+            T_lossless, T_lossy, rtol=1e-6
+        ), "With fr > 0 the matrix should differ from the lossless case"
 
     def test_falls_back_to_cylindrical_when_atc_is_zero(self, make_horn):
         """
         When atc = 0 (not set), A0 falls back to throat_area * 4,
         then to ap1. The result should be a valid matrix (not identity).
         """
-        horn = make_horn(ap1=0.002, lpt=0.04, atc=0.0, throat_area=0.0005,
-                         throat_adapter_type="cylindrical")
+        horn = make_horn(
+            ap1=0.002,
+            lpt=0.04,
+            atc=0.0,
+            throat_area=0.0005,
+            throat_adapter_type="cylindrical",
+        )
         T = models.throat_adapter_tmatrix(horn, freq=600.0)
         assert T.shape == (2, 2)
         assert np.isfinite(T).all()
@@ -499,7 +533,9 @@ class TestRearChamberImpedance:
 
     def test_with_flow_resistivity(self):
         """With fr > 0, should incorporate Miki absorption."""
-        Z = models.rear_chamber_impedance(freq=100.0, volume=0.005, length=0.1, fr=5000.0)
+        Z = models.rear_chamber_impedance(
+            freq=100.0, volume=0.005, length=0.1, fr=5000.0
+        )
         assert isinstance(Z, complex)
 
 
@@ -519,9 +555,11 @@ class TestRearChamberVentedBox:
         # With Vrc=5L and Lrc=15cm the acoustic mass and compliance give f_b ~ 55 Hz
         # (computed iteratively in the function to match the Helmholtz formula)
         vrc = 0.005  # 5 L
-        lrc = 0.15   # 15 cm port
+        lrc = 0.15  # 15 cm port
         # The resonance frequency should be computable (function should not error)
-        Z = models.rear_chamber_impedance(freq=55.0, volume=vrc, length=lrc, chamber_type="vented")
+        Z = models.rear_chamber_impedance(
+            freq=55.0, volume=vrc, length=lrc, chamber_type="vented"
+        )
         assert np.isfinite(Z)
         assert abs(Z) > 0
 
@@ -545,14 +583,18 @@ class TestRearChamberVentedBox:
 
     def test_vented_zero_volume_returns_zero(self):
         """volume <= 0 should return 0j regardless of chamber_type."""
-        Z = models.rear_chamber_impedance(freq=55.0, volume=0.0, length=0.15, chamber_type="vented")
+        Z = models.rear_chamber_impedance(
+            freq=55.0, volume=0.0, length=0.15, chamber_type="vented"
+        )
         assert Z == pytest.approx(0.0j)
 
     def test_vented_zero_length_falls_back_to_sealed(self):
         """lrc=0 with vented type should fall back to sealed compliance model."""
         vrc = 0.005
         freq = 50.0
-        Z_vented_zero_lrc = models.rear_chamber_impedance(freq, vrc, 0.0, chamber_type="vented")
+        Z_vented_zero_lrc = models.rear_chamber_impedance(
+            freq, vrc, 0.0, chamber_type="vented"
+        )
         Z_sealed = models.rear_chamber_impedance(freq, vrc, 0.0, chamber_type="sealed")
         assert Z_vented_zero_lrc == pytest.approx(Z_sealed)
 
@@ -576,12 +618,16 @@ class TestRearChamberCoupling:
 
     def test_coupling_zero_volume_returns_zero(self):
         """volume <= 0 should return 0j regardless of chamber_type."""
-        Z = models.rear_chamber_impedance(freq=50.0, volume=0.0, length=0.15, chamber_type="coupling")
+        Z = models.rear_chamber_impedance(
+            freq=50.0, volume=0.0, length=0.15, chamber_type="coupling"
+        )
         assert Z == pytest.approx(0.0j)
 
     def test_coupling_purely_capacitive_at_low_freq(self):
         """At very low frequency, coupling chamber should be purely capacitive (negative imag)."""
-        Z = models.rear_chamber_impedance(freq=20.0, volume=0.005, length=0.15, chamber_type="coupling")
+        Z = models.rear_chamber_impedance(
+            freq=20.0, volume=0.005, length=0.15, chamber_type="coupling"
+        )
         # Pure stiffness: Z ≈ 1/(jωC) → purely negative imaginary
         assert Z.real == pytest.approx(0.0, abs=1e-6)  # essentially zero real part
         assert Z.imag < 0  # capacitive
@@ -597,12 +643,16 @@ class TestRearChamberCoupling:
         vrc = 0.005
         lrc = 0.15
         freq = 55.0
-        Z_coupling = models.rear_chamber_impedance(freq, vrc, lrc, chamber_type="coupling")
+        Z_coupling = models.rear_chamber_impedance(
+            freq, vrc, lrc, chamber_type="coupling"
+        )
         Z_vented = models.rear_chamber_impedance(freq, vrc, lrc, chamber_type="vented")
         # At vented resonance the imaginary part is near zero (mass=compliance)
         # Coupling is always stiffness-dominated → always negative imaginary at LF
         assert Z_coupling.imag < 0  # coupling is always capacitive
-        assert abs(Z_vented.imag) < abs(Z_coupling.imag)  # vented imag is much smaller at resonance
+        assert abs(Z_vented.imag) < abs(
+            Z_coupling.imag
+        )  # vented imag is much smaller at resonance
         # They should differ substantially in both real and imaginary parts
         assert abs(Z_coupling - Z_vented) > 1000  # large difference at vented resonance
 
@@ -624,12 +674,18 @@ class TestRearChamberCoupling:
     def test_coupling_with_throat_area_has_radiation(self):
         """With throat_area > 0, coupling chamber adds radiation impedance."""
         Z_no_throat = models.rear_chamber_impedance(
-            freq=50.0, volume=0.005, length=0.15,
-            chamber_type="coupling", throat_area=0.0
+            freq=50.0,
+            volume=0.005,
+            length=0.15,
+            chamber_type="coupling",
+            throat_area=0.0,
         )
         Z_with_throat = models.rear_chamber_impedance(
-            freq=50.0, volume=0.005, length=0.15,
-            chamber_type="coupling", throat_area=0.0044  # ~7.5 cm diameter
+            freq=50.0,
+            volume=0.005,
+            length=0.15,
+            chamber_type="coupling",
+            throat_area=0.0044,  # ~7.5 cm diameter
         )
         # Adding radiation should increase the real part
         assert Z_with_throat.real > Z_no_throat.real
@@ -644,15 +700,18 @@ class TestRearChamberCoupling:
         vrc = 0.005
         lrc = 0.15
         freqs = np.array([20.0, 30.0, 40.0, 50.0, 60.0, 70.0])
-        Z_vals = np.array([
-            models.rear_chamber_impedance(f, vrc, lrc, chamber_type="coupling")
-            for f in freqs
-        ])
+        Z_vals = np.array(
+            [
+                models.rear_chamber_impedance(f, vrc, lrc, chamber_type="coupling")
+                for f in freqs
+            ]
+        )
         magnitudes = np.abs(Z_vals)
         # Pure stiffness: |Z| ∝ 1/ω → decreases as freq increases (no resonance peak)
         for i in range(1, len(magnitudes)):
-            assert magnitudes[i] < magnitudes[i - 1], \
-                f"Coupling impedance not monotonic decreasing: {magnitudes}"
+            assert (
+                magnitudes[i] < magnitudes[i - 1]
+            ), f"Coupling impedance not monotonic decreasing: {magnitudes}"
 
 
 class TestRadiationImpedance:
@@ -675,7 +734,9 @@ class TestRadiationImpedance:
 
     def test_larger_mouth_lower_Zc(self):
         """Larger mouth area → lower characteristic impedance → lower |Z|."""
-        Z_small = models.radiation_impedance(freq=1000.0, mouth_area=0.001, ang=2 * np.pi)
+        Z_small = models.radiation_impedance(
+            freq=1000.0, mouth_area=0.001, ang=2 * np.pi
+        )
         Z_large = models.radiation_impedance(freq=1000.0, mouth_area=0.1, ang=2 * np.pi)
         assert abs(Z_large) < abs(Z_small)
 
@@ -683,12 +744,16 @@ class TestRadiationImpedance:
         """mouth_width and mouth_height should be used for rectangular piston model."""
         Z_circ = models.radiation_impedance(freq=1000.0, mouth_area=0.02, ang=2 * np.pi)
         Z_rect = models.radiation_impedance(
-            freq=1000.0, mouth_area=0.02, ang=2 * np.pi,
-            mouth_width=0.2, mouth_height=0.1
+            freq=1000.0,
+            mouth_area=0.02,
+            ang=2 * np.pi,
+            mouth_width=0.2,
+            mouth_height=0.1,
         )
         # Both should be valid complex numbers
         assert np.iscomplexobj(np.array([Z_circ]))
         assert np.iscomplexobj(np.array([Z_rect]))
+
 
 class TestRectangularPistonRadiation:
     """Tests for the rectangular piston radiation impedance (low-ka approximation)."""
@@ -707,7 +772,9 @@ class TestRectangularPistonRadiation:
             200.0, mouth_area, 2 * np.pi, mouth_width=mouth_w, mouth_height=mouth_h
         )
         ratio = Z_200.real / Z_100.real
-        assert ratio == pytest.approx(4.0, rel=1e-2), f"R should 4x when f 2x; got {ratio}"
+        assert ratio == pytest.approx(
+            4.0, rel=1e-2
+        ), f"R should 4x when f 2x; got {ratio}"
 
     def test_resistance_matches_morse_ingard_formula(self):
         """
@@ -739,7 +806,9 @@ class TestRectangularPistonRadiation:
             200.0, mouth_area, 2 * np.pi, mouth_width=mouth_w, mouth_height=mouth_h
         )
         ratio = Z_200.imag / Z_100.imag
-        assert ratio == pytest.approx(2.0, rel=1e-2), f"X should 2x when f 2x; got {ratio}"
+        assert ratio == pytest.approx(
+            2.0, rel=1e-2
+        ), f"X should 2x when f 2x; got {ratio}"
 
     def test_reactance_matches_end_correction_formula(self):
         """
@@ -762,8 +831,11 @@ class TestRectangularPistonRadiation:
         mouth_area = mouth_w * mouth_h
         for f in [50, 100, 200, 500, 1000]:
             Z = models.radiation_impedance(
-                float(f), mouth_area, 2 * np.pi,
-                mouth_width=mouth_w, mouth_height=mouth_h
+                float(f),
+                mouth_area,
+                2 * np.pi,
+                mouth_width=mouth_w,
+                mouth_height=mouth_h,
             )
             assert Z.real >= 0, f"R_rad = {Z.real} at {f} Hz"
 
@@ -773,8 +845,11 @@ class TestRectangularPistonRadiation:
         mouth_area = mouth_w * mouth_h
         for f in [50, 100, 200, 500]:
             Z = models.radiation_impedance(
-                float(f), mouth_area, 2 * np.pi,
-                mouth_width=mouth_w, mouth_height=mouth_h
+                float(f),
+                mouth_area,
+                2 * np.pi,
+                mouth_width=mouth_w,
+                mouth_height=mouth_h,
             )
             assert Z.imag > 0, f"X_rad = {Z.imag} at {f} Hz"
 
@@ -797,16 +872,13 @@ class TestRectangularPistonRadiation:
         assert Z_half.imag == pytest.approx(Z_full.imag, rel=1e-2)
 
 
-
-
 class TestLevineInglisRadiation:
     """Tests for the exact Levine/Inglis circular piston radiation impedance."""
 
     def test_returns_complex(self):
         """Should return a complex number at mid frequency."""
         Z = models._circular_piston_radiation_impedance(
-            freq=1000.0, mouth_area=0.01, ang=2 * np.pi,
-            Zc=400.0, a=0.056
+            freq=1000.0, mouth_area=0.01, ang=2 * np.pi, Zc=400.0, a=0.056
         )
         assert isinstance(Z, complex)
 
@@ -814,8 +886,7 @@ class TestLevineInglisRadiation:
         """Radiation resistance should always be non-negative."""
         for f in [100, 500, 1000, 5000, 10000]:
             Z = models._circular_piston_radiation_impedance(
-                freq=float(f), mouth_area=0.01, ang=2 * np.pi,
-                Zc=400.0, a=0.056
+                freq=float(f), mouth_area=0.01, ang=2 * np.pi, Zc=400.0, a=0.056
             )
             assert Z.real >= 0, f"R_rad = {Z.real} at {f} Hz"
 
@@ -827,8 +898,7 @@ class TestLevineInglisRadiation:
         """
         for f in [100, 500, 1000, 1200]:
             Z = models._circular_piston_radiation_impedance(
-                freq=float(f), mouth_area=0.01, ang=2 * np.pi,
-                Zc=400.0, a=0.056
+                freq=float(f), mouth_area=0.01, ang=2 * np.pi, Zc=400.0, a=0.056
             )
             assert Z.imag >= 0, f"X_rad = {Z.imag} at {f} Hz"
 
@@ -859,11 +929,19 @@ class TestLevineInglisRadiation:
         Zc = 400.0
         a = 0.056
         # Use f=20,22 Hz (small Δf) to isolate the ka⁴ contribution from the 3Zc/4 constant
-        R_20 = models._circular_piston_radiation_impedance(20.0, 0.01, 2 * np.pi, Zc, a).real
-        R_22 = models._circular_piston_radiation_impedance(22.0, 0.01, 2 * np.pi, Zc, a).real
+        R_20 = models._circular_piston_radiation_impedance(
+            20.0, 0.01, 2 * np.pi, Zc, a
+        ).real
+        R_22 = models._circular_piston_radiation_impedance(
+            22.0, 0.01, 2 * np.pi, Zc, a
+        ).real
         # Use f=20, 22 for the ratio; also compare with 10, 11 Hz (same relative spacing)
-        R_10 = models._circular_piston_radiation_impedance(10.0, 0.01, 2 * np.pi, Zc, a).real
-        R_11 = models._circular_piston_radiation_impedance(11.0, 0.01, 2 * np.pi, Zc, a).real
+        R_10 = models._circular_piston_radiation_impedance(
+            10.0, 0.01, 2 * np.pi, Zc, a
+        ).real
+        R_11 = models._circular_piston_radiation_impedance(
+            11.0, 0.01, 2 * np.pi, Zc, a
+        ).real
         # ΔR at higher frequencies should be larger (scales as f⁴)
         delta_high = R_22 - R_20
         delta_low = R_11 - R_10
@@ -880,12 +958,10 @@ class TestLevineInglisRadiation:
     def test_half_space_solid_angle_scaling(self):
         """Double the solid angle should halve both R_rad and X_rad."""
         Z_half = models._circular_piston_radiation_impedance(
-            freq=1000.0, mouth_area=0.01, ang=np.pi,
-            Zc=400.0, a=0.056
+            freq=1000.0, mouth_area=0.01, ang=np.pi, Zc=400.0, a=0.056
         )
         Z_full = models._circular_piston_radiation_impedance(
-            freq=1000.0, mouth_area=0.01, ang=2 * np.pi,
-            Zc=400.0, a=0.056
+            freq=1000.0, mouth_area=0.01, ang=2 * np.pi, Zc=400.0, a=0.056
         )
         # 2π vs π → half the radiated power per unit solid angle
         assert np.isclose(Z_half.real, 2.0 * Z_full.real, rtol=0.01)
@@ -931,9 +1007,20 @@ class TestHornResponseIntegration:
     def fostex_driver(self):
         """Fostex FE166NV2 driver specs."""
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     @pytest.fixture
@@ -995,6 +1082,41 @@ class TestHornResponseIntegration:
         assert len(result.direct_spl) == 100
         assert len(result.horn_spl) == 100
 
+    def test_measured_direct_override_uses_calibrated_horn_in_total(
+        self, fostex_driver, simple_horn
+    ):
+        """Measured direct override should rebuild total from direct + calibrated horn."""
+        from dataclasses import replace
+
+        freqs = np.array([100.0, 800.0, 3200.0])
+        measured_driver = replace(
+            fostex_driver,
+            sensitivity_db=-6.0,
+            spl_response=np.array(
+                [
+                    [20.0, 84.0],
+                    [5000.0, 99.0],
+                ]
+            ),
+        )
+
+        result = models.horn_response(freqs, measured_driver, simple_horn)
+
+        assert result.direct_spl is not None
+        assert result.horn_spl is not None
+        assert result.spl_power_based is not None
+        assert result.pressure is not None
+
+        raw_total_spl = models._pressure_to_spl(result.pressure)
+        horn_calibration_delta = result.spl_power_based - raw_total_spl
+        expected_total = 10.0 * np.log10(
+            np.power(10.0, result.direct_spl / 10.0)
+            + np.power(10.0, (result.horn_spl + horn_calibration_delta) / 10.0)
+        )
+
+        np.testing.assert_allclose(result.spl, expected_total, atol=1e-6)
+        assert not np.allclose(result.spl, raw_total_spl)
+
     def test_flh_has_no_direct_spl(self, fostex_driver):
         """FLH configuration should not populate direct_spl."""
         flh_horn = HornGeometry(
@@ -1052,14 +1174,16 @@ class TestHornResponseIntegration:
 
         # The curves must differ — lrc changes the rear chamber load
         diff = np.abs(result_with_lrc.impedance - result_no_lrc.impedance)
-        assert np.max(diff) > 0.05, "lrc change should produce a measurable impedance difference"
+        assert (
+            np.max(diff) > 0.05
+        ), "lrc change should produce a measurable impedance difference"
 
         # Low-frequency region (< 200 Hz) is most sensitive to rear chamber
         lf_mask = freqs < 200
         lf_diff = diff[lf_mask]
-        assert np.mean(lf_diff) > 0.01, (
-            "Low-frequency impedance should differ noticeably with lrc > 0"
-        )
+        assert (
+            np.mean(lf_diff) > 0.01
+        ), "Low-frequency impedance should differ noticeably with lrc > 0"
 
     def test_rear_chamber_lrc_zero_still_uses_compliance(self, fostex_driver):
         """With lrc=0 but fr_rc>0, the compliance term still activates via cubic fallback.
@@ -1089,9 +1213,9 @@ class TestHornResponseIntegration:
         result_with_fr_rc = models.horn_response(freqs, fostex_driver, horn_with_fr_rc)
 
         diff = np.abs(result_with_fr_rc.impedance - result_no_rc.impedance)
-        assert np.max(diff) > 0.01, (
-            "fr_rc > 0 with lrc=0 should still activate rear chamber via cubic fallback"
-        )
+        assert (
+            np.max(diff) > 0.01
+        ), "fr_rc > 0 with lrc=0 should still activate rear chamber via cubic fallback"
 
 
 class TestSectionsCutoffFrequency:
@@ -1122,7 +1246,9 @@ class TestSectionsCutoffFrequency:
             xmax=0.001,
         )
 
-    def test_straight_throat_then_exponential_cutoff_from_flare_section(self, fostex_driver):
+    def test_straight_throat_then_exponential_cutoff_from_flare_section(
+        self, fostex_driver
+    ):
         """Straight throat + exponential flare: cutoff must come from the flare section.
 
         A straight throat section (constant area) has no exponential cutoff — it is
@@ -1173,8 +1299,12 @@ class TestSectionsCutoffFrequency:
 
         # Compute response: straight throat + exponential vs exponential only
         freqs = np.linspace(20, 500, 200)
-        result_straight = models.horn_response(freqs, fostex_driver, horn_with_straight_throat)
-        result_exp_only = models.horn_response(freqs, fostex_driver, horn_exponential_only)
+        result_straight = models.horn_response(
+            freqs, fostex_driver, horn_with_straight_throat
+        )
+        result_exp_only = models.horn_response(
+            freqs, fostex_driver, horn_exponential_only
+        )
 
         # Above cutoff (~200-400 Hz), the straight throat horn should be close to exponential-only.
         # This band is above the coupling-chamber resonance notch (80-130 Hz).
@@ -1303,9 +1433,18 @@ class TestInfiniteBaffleResponse:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
         )
 
     def test_returns_spl_array(self, fostex_driver):
@@ -1327,6 +1466,7 @@ class TestInfiniteBaffleResponse:
         spl = models.infinite_baffle_response(freqs, fostex_driver)
         # SPL at 5 Hz should be much lower than at 100 Hz
         assert spl[0] < spl[20]
+
 
 class TestMikiFactorsClamping:
     """Tests for _miki_factors() clamping bounds outside validity range."""
@@ -1363,7 +1503,6 @@ class TestMikiFactorsClamping:
         assert Zc_f.imag < 0
 
 
-
 class TestVentedBoxImpedance:
     """Tests for vented_box_impedance()."""
 
@@ -1392,7 +1531,9 @@ class TestVentedBoxImpedance:
         """At very low frequency, box compliance should dominate → negative reactance."""
         Z = models.vented_box_impedance(freq=10.0, vrc=0.035, lrc=0.05, fr_tuning=50.0)
         # Compliance: Z ≈ 1/(jωC) → negative imaginary
-        assert Z.imag < 0, f"Below tuning, compliance should dominate (neg imag); got Z={Z}"
+        assert (
+            Z.imag < 0
+        ), f"Below tuning, compliance should dominate (neg imag); got Z={Z}"
 
     def test_resonance_cancellation_at_tuning(self):
         """At the tuning frequency, mass and compliance impedances cancel to first order.
@@ -1405,7 +1546,9 @@ class TestVentedBoxImpedance:
         parallel radiation+leak resistance.
         """
         fr_tuning = 50.0
-        Z = models.vented_box_impedance(freq=fr_tuning, vrc=0.035, lrc=0.05, fr_tuning=fr_tuning)
+        Z = models.vented_box_impedance(
+            freq=fr_tuning, vrc=0.035, lrc=0.05, fr_tuning=fr_tuning
+        )
         # At tuning: |Z| should be close to the real (radiation+leak) resistance,
         # not swamped by mass/compliance reactance.  With the corrected small-ka
         # radiation model, the port X_rad is realistic (~few thousand acoustic ohms)
@@ -1413,9 +1556,9 @@ class TestVentedBoxImpedance:
         # Check that Z.real > 0 and |Z| is not enormously larger than Z.real
         # (ratio < 3 means mass+compliance residual is at most ~3× the real part)
         ratio = abs(Z.imag) / abs(Z.real) if Z.real != 0 else abs(Z.imag)
-        assert ratio < 3.0, (
-            f"At tuning frequency, |Z_imag|/|Z_real| should be modest; got {ratio:.3f}"
-        )
+        assert (
+            ratio < 3.0
+        ), f"At tuning frequency, |Z_imag|/|Z_real| should be modest; got {ratio:.3f}"
         assert Z.real > 0, f"At tuning, Z.real should be positive; got {Z.real}"
 
     def test_high_frequency_mass_dominant(self):
@@ -1435,8 +1578,12 @@ class TestVentedBoxImpedance:
         So: Ql=2 should give HIGHER Z than Ql=10.
         """
         fr_tuning = 50.0
-        Z_low_q = models.vented_box_impedance(freq=fr_tuning, vrc=0.035, lrc=0.05, fr_tuning=fr_tuning, ql=2.0)
-        Z_high_q = models.vented_box_impedance(freq=fr_tuning, vrc=0.035, lrc=0.05, fr_tuning=fr_tuning, ql=10.0)
+        Z_low_q = models.vented_box_impedance(
+            freq=fr_tuning, vrc=0.035, lrc=0.05, fr_tuning=fr_tuning, ql=2.0
+        )
+        Z_high_q = models.vented_box_impedance(
+            freq=fr_tuning, vrc=0.035, lrc=0.05, fr_tuning=fr_tuning, ql=10.0
+        )
         # Lower Ql (more loss) → lower R_leak → more current diverted → lower Z
         # Higher Ql (less loss) → higher R_leak → less current diverted → higher Z
         assert abs(Z_low_q) > abs(Z_high_q), (
@@ -1458,14 +1605,26 @@ class TestVentedBoxVsClosedBox:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     def test_vented_box_with_horn_works(self, fostex_driver):
         """horn_response should run without error when a VentedBox is set."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1493,6 +1652,7 @@ class TestVentedBoxVsClosedBox:
         compared to a sealed box of the same volume.
         """
         from pyhorn_core.config.models import VentedBox
+
         vrc = 0.035  # 35 L
         fr_tuning = 50.0
 
@@ -1548,6 +1708,7 @@ class TestVentedBoxVsClosedBox:
         A sealed box only has a single impedance peak at fs.
         """
         from pyhorn_core.config.models import VentedBox
+
         vrc = 0.035
         fr_tuning = 50.0
 
@@ -1594,15 +1755,27 @@ class TestFiniteHornChargedBassReflex:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     def test_finite_horn_charged_returns_result(self, fostex_driver):
         """horn_response should return a SimulationResult without error when
         finite_horn_charged=True on the VentedBox."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1615,7 +1788,10 @@ class TestFiniteHornChargedBassReflex:
             fr_tc=2000.0,
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
             ),
         )
@@ -1628,6 +1804,7 @@ class TestFiniteHornChargedBassReflex:
     def test_finite_horn_charged_flag_in_result(self, fostex_driver):
         """result.finite_horn_charged should be True when the topology is active."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1637,7 +1814,10 @@ class TestFiniteHornChargedBassReflex:
             ],
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
             ),
         )
@@ -1648,6 +1828,7 @@ class TestFiniteHornChargedBassReflex:
     def test_finite_horn_charged_false_not_set(self, fostex_driver):
         """result.finite_horn_charged should be False when not set."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1657,7 +1838,10 @@ class TestFiniteHornChargedBassReflex:
             ],
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=False,  # explicitly off
             ),
         )
@@ -1668,6 +1852,7 @@ class TestFiniteHornChargedBassReflex:
     def test_finite_horn_charged_flh_works(self, fostex_driver):
         """FLH enclosure with finite_horn_charged=True should also work."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="FLH",
             conical_segments=[
@@ -1677,7 +1862,10 @@ class TestFiniteHornChargedBassReflex:
             ],
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
             ),
         )
@@ -1692,6 +1880,7 @@ class TestFiniteHornChargedBassReflex:
         box (same box params but finite_horn_charged=False) because the port
         radiation is now added as a separate pressure source."""
         from pyhorn_core.config.models import VentedBox
+
         vrc = 0.035
         fr_tuning = 50.0
         base = HornGeometry(
@@ -1704,7 +1893,10 @@ class TestFiniteHornChargedBassReflex:
             ],
             vrc=vrc,
             vented_box=VentedBox(
-                vrc=vrc, fr=fr_tuning, lrc=0.05, ql=5.0,
+                vrc=vrc,
+                fr=fr_tuning,
+                lrc=0.05,
+                ql=5.0,
                 finite_horn_charged=False,
             ),
         )
@@ -1718,7 +1910,10 @@ class TestFiniteHornChargedBassReflex:
             ],
             vrc=vrc,
             vented_box=VentedBox(
-                vrc=vrc, fr=fr_tuning, lrc=0.05, ql=5.0,
+                vrc=vrc,
+                fr=fr_tuning,
+                lrc=0.05,
+                ql=5.0,
                 finite_horn_charged=True,
             ),
         )
@@ -1735,6 +1930,7 @@ class TestFiniteHornChargedBassReflex:
     def test_path_length_difference_zero_is_neutral(self, fostex_driver):
         """path_length_difference=0 should produce identical SPL to omitting it."""
         from pyhorn_core.config.models import VentedBox
+
         horn_no_pld = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1743,7 +1939,10 @@ class TestFiniteHornChargedBassReflex:
             fr_tc=2000.0,
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
                 path_length_difference=0.0,
             ),
@@ -1756,19 +1955,27 @@ class TestFiniteHornChargedBassReflex:
             fr_tc=2000.0,
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
             ),
         )
         freqs = np.linspace(20, 5000, 100)
         r1 = models.horn_response(freqs, fostex_driver, horn_no_pld)
         r2 = models.horn_response(freqs, fostex_driver, horn_no_pld_explicit)
-        np.testing.assert_allclose(r1.spl, r2.spl, rtol=1e-10,
-                                   err_msg="path_length_difference=0 should be neutral")
+        np.testing.assert_allclose(
+            r1.spl,
+            r2.spl,
+            rtol=1e-10,
+            err_msg="path_length_difference=0 should be neutral",
+        )
 
     def test_path_length_difference_nonzero_changes_result(self, fostex_driver):
         """Non-zero path_length_difference should change SPL due to phase offset."""
         from pyhorn_core.config.models import VentedBox
+
         horn_base = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1777,7 +1984,10 @@ class TestFiniteHornChargedBassReflex:
             fr_tc=2000.0,
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
                 path_length_difference=0.0,
             ),
@@ -1790,7 +2000,10 @@ class TestFiniteHornChargedBassReflex:
             fr_tc=2000.0,
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
                 path_length_difference=0.5,  # 0.5 m listening offset
             ),
@@ -1841,7 +2054,9 @@ class TestTransmissionLineImpedance:
         ltl = 1.0
         f_series = c / (2.0 * ltl)  # 171.5 Hz
         Z = models.transmission_line_impedance(freq=f_series, ltl=ltl, area=0.01)
-        assert abs(Z) < 1.0, f"At series resonance Z should be near zero; got |Z|={abs(Z)}"
+        assert (
+            abs(Z) < 1.0
+        ), f"At series resonance Z should be near zero; got |Z|={abs(Z)}"
 
     def test_high_at_anti_resonance(self):
         """At anti-resonance k·l = π/2, tan(k·l) → ∞ → Z_tl → ∞."""
@@ -1864,15 +2079,27 @@ class TestFiniteTransmissionLine:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     def test_finite_transmission_line_returns_result(self, fostex_driver):
         """horn_response should return a SimulationResult without error when
         finite_transmission_line=True on the VentedBox."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1885,7 +2112,10 @@ class TestFiniteTransmissionLine:
             fr_tc=2000.0,
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_transmission_line=True,
                 ltl=1.0,  # 1 m transmission line
             ),
@@ -1900,6 +2130,7 @@ class TestFiniteTransmissionLine:
         """With finite_transmission_line=True, SPL should differ from the base case
         (same params but finite_transmission_line=False)."""
         from pyhorn_core.config.models import VentedBox
+
         horn_base = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1909,7 +2140,10 @@ class TestFiniteTransmissionLine:
             ],
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_transmission_line=False,
             ),
         )
@@ -1922,7 +2156,10 @@ class TestFiniteTransmissionLine:
             ],
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_transmission_line=True,
                 ltl=1.0,
             ),
@@ -1940,6 +2177,7 @@ class TestFiniteTransmissionLine:
         """When ltl=0 (even with finite_transmission_line=True), the result should
         match the base case (no TL contribution)."""
         from pyhorn_core.config.models import VentedBox
+
         horn_base = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -1953,7 +2191,10 @@ class TestFiniteTransmissionLine:
             conical_segments=[(0.06, 0.07, 0.03)],
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_transmission_line=True,
                 ltl=0.0,
             ),
@@ -1967,6 +2208,7 @@ class TestFiniteTransmissionLine:
         """Different ltl values should produce different SPL responses
         (the TL resonance frequency changes with length)."""
         from pyhorn_core.config.models import VentedBox
+
         def make_horn(ltl_val):
             return HornGeometry(
                 enclosure_type="BLH",
@@ -1974,7 +2216,10 @@ class TestFiniteTransmissionLine:
                 conical_segments=[(0.06, 0.07, 0.03), (0.07, 0.09, 0.04)],
                 vrc=0.035,
                 vented_box=VentedBox(
-                    vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                    vrc=0.035,
+                    fr=45.0,
+                    lrc=0.10,
+                    ql=5.0,
                     finite_transmission_line=True,
                     ltl=ltl_val,
                 ),
@@ -1992,6 +2237,7 @@ class TestFiniteTransmissionLine:
     def test_finite_transmission_line_in_flh_mode(self, fostex_driver):
         """finite_transmission_line should also work in FLH (non-BLH) mode."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="FLH",
             throat_area=0.004,
@@ -2001,7 +2247,10 @@ class TestFiniteTransmissionLine:
             n_segments=50,
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_transmission_line=True,
                 ltl=0.8,
             ),
@@ -2011,16 +2260,22 @@ class TestFiniteTransmissionLine:
         assert isinstance(result, models.SimulationResult)
         assert np.all(np.isfinite(result.spl))
 
-    def test_finite_transmission_line_and_finite_horn_charged_together(self, fostex_driver):
+    def test_finite_transmission_line_and_finite_horn_charged_together(
+        self, fostex_driver
+    ):
         """Both finite_transmission_line and finite_horn_charged can be True simultaneously."""
         from pyhorn_core.config.models import VentedBox
+
         horn = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
             conical_segments=[(0.06, 0.08, 0.05)],
             vrc=0.035,
             vented_box=VentedBox(
-                vrc=0.035, fr=45.0, lrc=0.10, ql=5.0,
+                vrc=0.035,
+                fr=45.0,
+                lrc=0.10,
+                ql=5.0,
                 finite_horn_charged=True,
                 finite_transmission_line=True,
                 ltl=1.0,
@@ -2038,23 +2293,17 @@ class TestPassiveRadiatorImpedance:
 
     def test_zero_volume_returns_zero(self):
         """vrc <= 0 should return 0j."""
-        Z = models.passive_radiator_impedance(
-            freq=100.0, vrc=0.0, mma=0.005, sp=0.005
-        )
+        Z = models.passive_radiator_impedance(freq=100.0, vrc=0.0, mma=0.005, sp=0.005)
         assert Z == pytest.approx(0.0j)
 
     def test_zero_mass_returns_zero(self):
         """mma <= 0 should return 0j."""
-        Z = models.passive_radiator_impedance(
-            freq=100.0, vrc=0.035, mma=0.0, sp=0.005
-        )
+        Z = models.passive_radiator_impedance(freq=100.0, vrc=0.035, mma=0.0, sp=0.005)
         assert Z == pytest.approx(0.0j)
 
     def test_zero_area_returns_zero(self):
         """sp <= 0 should return 0j."""
-        Z = models.passive_radiator_impedance(
-            freq=100.0, vrc=0.035, mma=0.005, sp=0.0
-        )
+        Z = models.passive_radiator_impedance(freq=100.0, vrc=0.035, mma=0.005, sp=0.0)
         assert Z == pytest.approx(0.0j)
 
     def test_returns_complex(self):
@@ -2072,9 +2321,7 @@ class TestPassiveRadiatorImpedance:
         sp = 0.005
         C_pr = vrc / (models.RHO * models.C**2)
         f_pr = np.sqrt(1.0 / (mma * C_pr)) / (2.0 * np.pi)
-        Z = models.passive_radiator_impedance(
-            freq=f_pr, vrc=vrc, mma=mma, sp=sp
-        )
+        Z = models.passive_radiator_impedance(freq=f_pr, vrc=vrc, mma=mma, sp=sp)
         assert abs(Z) > 0.0
         assert np.isfinite(Z)
 
@@ -2085,12 +2332,10 @@ class TestPassiveRadiatorImpedance:
         sp = 0.005
         C_pr = vrc / (models.RHO * models.C**2)
         f_pr = np.sqrt(1.0 / (mma * C_pr)) / (2.0 * np.pi)
-        Z = models.passive_radiator_impedance(
-            freq=f_pr * 0.3, vrc=vrc, mma=mma, sp=sp
-        )
-        assert Z.imag < 0, (
-            f"Below f_pr, box compliance should dominate → negative reactance; got Z={Z}"
-        )
+        Z = models.passive_radiator_impedance(freq=f_pr * 0.3, vrc=vrc, mma=mma, sp=sp)
+        assert (
+            Z.imag < 0
+        ), f"Below f_pr, box compliance should dominate → negative reactance; got Z={Z}"
 
     def test_high_frequency_impedance_rises_with_mass(self):
         """Above f_pr, higher Mma → higher |Z_ab|."""
@@ -2123,9 +2368,9 @@ class TestPassiveRadiatorImpedance:
             freq=freq, vrc=vrc, mma=mma, sp=sp, ql_pr=10.0
         )
         # R_leak = 1/(2π·f·C·Ql). Higher Ql → smaller R_leak → more shunting → lower |Z|.
-        assert abs(Z_high_q) < abs(Z_low_q), (
-            f"Ql=10 should give lower |Z| than Ql=2; got {abs(Z_high_q):.3f} vs {abs(Z_low_q):.3f}"
-        )
+        assert abs(Z_high_q) < abs(
+            Z_low_q
+        ), f"Ql=10 should give lower |Z| than Ql=2; got {abs(Z_high_q):.3f} vs {abs(Z_low_q):.3f}"
 
 
 class TestSecondToneDistortion:
@@ -2134,9 +2379,20 @@ class TestSecondToneDistortion:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     def test_second_tone_distortion_returns_result(self, fostex_driver):
@@ -2149,13 +2405,16 @@ class TestSecondToneDistortion:
             vtc=0.0036,
             fr_tc=2000.0,
         )
-        from pyhorn_core.solver.models import _compute_second_tone_distortion, horn_response
+        from pyhorn_core.solver.models import (
+            _compute_second_tone_distortion,
+            horn_response,
+        )
 
         # Test the standalone function directly
         result = horn_response(freqs, fostex_driver, horn, compute_distortion=True)
-        assert result.second_tone_distortion is not None, (
-            "second_tone_distortion should be non-None for single-segment horn"
-        )
+        assert (
+            result.second_tone_distortion is not None
+        ), "second_tone_distortion should be non-None for single-segment horn"
         assert isinstance(result.second_tone_distortion, np.ndarray)
         assert len(result.second_tone_distortion) == len(freqs)
 
@@ -2175,7 +2434,9 @@ class TestSecondToneDistortion:
             vtc=0.0036,
             fr_tc=2000.0,
         )
-        result = models.horn_response(freqs, fostex_driver, horn, compute_distortion=True)
+        result = models.horn_response(
+            freqs, fostex_driver, horn, compute_distortion=True
+        )
 
         assert result.second_tone_distortion is not None
         dist = result.second_tone_distortion
@@ -2209,7 +2470,9 @@ class TestSecondToneDistortion:
             vtc=0.0036,
             fr_tc=2000.0,
         )
-        result = models.horn_response(freqs, fostex_driver, horn, compute_distortion=True)
+        result = models.horn_response(
+            freqs, fostex_driver, horn, compute_distortion=True
+        )
 
         assert result.second_tone_distortion is not None
         dist = result.second_tone_distortion
@@ -2233,10 +2496,12 @@ class TestSecondToneDistortion:
             vtc=0.0036,
             fr_tc=2000.0,
         )
-        result = models.horn_response(freqs, fostex_driver, horn, compute_distortion=True)
-        assert result.second_tone_distortion is None, (
-            "Multi-segment horn should have second_tone_distortion = None"
+        result = models.horn_response(
+            freqs, fostex_driver, horn, compute_distortion=True
         )
+        assert (
+            result.second_tone_distortion is None
+        ), "Multi-segment horn should have second_tone_distortion = None"
 
     def test_distortion_disabled_by_flag(self, fostex_driver):
         """compute_distortion=False should skip distortion computation."""
@@ -2248,10 +2513,12 @@ class TestSecondToneDistortion:
             vtc=0.0036,
             fr_tc=2000.0,
         )
-        result = models.horn_response(freqs, fostex_driver, horn, compute_distortion=False)
-        assert result.second_tone_distortion is None, (
-            "second_tone_distortion should be None when compute_distortion=False"
+        result = models.horn_response(
+            freqs, fostex_driver, horn, compute_distortion=False
         )
+        assert (
+            result.second_tone_distortion is None
+        ), "second_tone_distortion should be None when compute_distortion=False"
 
 
 class TestPassiveRadiatorVsVentedBox:
@@ -2260,14 +2527,26 @@ class TestPassiveRadiatorVsVentedBox:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     def test_passive_radiator_horn_works(self, fostex_driver):
         """horn_response should run without error when a PassiveRadiator is set."""
         from pyhorn_core.config.models import PassiveRadiator
+
         horn = HornGeometry(
             enclosure_type="BLH",
             width=0.2,
@@ -2279,9 +2558,7 @@ class TestPassiveRadiatorVsVentedBox:
             vtc=0.0036,
             fr_tc=2000.0,
             vrc=0.035,
-            passive_radiator=PassiveRadiator(
-                mma=0.005, sp1=0.005, ql_pr=5.0
-            ),
+            passive_radiator=PassiveRadiator(mma=0.005, sp1=0.005, ql_pr=5.0),
         )
         freqs = np.linspace(20, 5000, 100)
         result = models.horn_response(freqs, fostex_driver, horn)
@@ -2292,6 +2569,7 @@ class TestPassiveRadiatorVsVentedBox:
     def test_passive_radiator_spl_differs_from_vented_box(self, fostex_driver):
         """PR and vented-box horns with similar tunings should produce different SPL curves."""
         from pyhorn_core.config.models import PassiveRadiator, VentedBox
+
         vrc = 0.035
         f_tune = 50.0
         sp_pr = 0.005
@@ -2337,6 +2615,7 @@ class TestPassiveRadiatorVsVentedBox:
     def test_passive_radiator_total_sp_sums_panels(self):
         """total_sp property should correctly sum sp1–sp9."""
         from pyhorn_core.config.models import PassiveRadiator
+
         pr = PassiveRadiator(
             mma=0.005,
             sp1=0.001,
@@ -2363,9 +2642,20 @@ class TestThermalPowerCompression:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     @pytest.fixture
@@ -2385,12 +2675,10 @@ class TestThermalPowerCompression:
     def test_no_compression_at_room_temperature(self, fostex_driver, simple_horn):
         """T=20°C should give zero compression (no heating)."""
         freqs = np.linspace(20, 5000, 100)
-        result = models.horn_response(
-            freqs, fostex_driver, simple_horn, T_voice=20.0
-        )
-        assert result.thermal_compression_db is None, (
-            "T=20°C should not compute thermal compression (None, not 0)"
-        )
+        result = models.horn_response(freqs, fostex_driver, simple_horn, T_voice=20.0)
+        assert (
+            result.thermal_compression_db is None
+        ), "T=20°C should not compute thermal compression (None, not 0)"
 
     def test_no_compression_when_T_voice_is_none(self, fostex_driver, simple_horn):
         """T_voice=None should not compute thermal compression."""
@@ -2401,13 +2689,11 @@ class TestThermalPowerCompression:
     def test_compression_is_non_positive_at_100C(self, fostex_driver, simple_horn):
         """Heating cannot increase SPL — compression must be ≤ 0 dB."""
         freqs = np.linspace(20, 5000, 100)
-        result = models.horn_response(
-            freqs, fostex_driver, simple_horn, T_voice=100.0
-        )
+        result = models.horn_response(freqs, fostex_driver, simple_horn, T_voice=100.0)
         assert result.thermal_compression_db is not None
-        assert np.all(result.thermal_compression_db <= 0.0), (
-            "Thermal compression must be ≤ 0 dB (heating reduces output)"
-        )
+        assert np.all(
+            result.thermal_compression_db <= 0.0
+        ), "Thermal compression must be ≤ 0 dB (heating reduces output)"
 
     def test_compression_increases_with_temperature(self, fostex_driver, simple_horn):
         """Higher temperature → larger (more negative) compression."""
@@ -2428,9 +2714,7 @@ class TestThermalPowerCompression:
     def test_compression_reasonable_magnitude(self, fostex_driver, simple_horn):
         """At 100°C with copper wire, compression should be roughly 1-3 dB."""
         freqs = np.linspace(20, 5000, 100)
-        result = models.horn_response(
-            freqs, fostex_driver, simple_horn, T_voice=100.0
-        )
+        result = models.horn_response(freqs, fostex_driver, simple_horn, T_voice=100.0)
         assert result.thermal_compression_db is not None
         mean_compression = np.mean(result.thermal_compression_db)
         # Copper alpha = 0.00393, 80°C rise → Re ratio = 1.314
@@ -2440,7 +2724,9 @@ class TestThermalPowerCompression:
             f"got {mean_compression:.2f} dB"
         )
 
-    def test_compute_thermal_power_compression_returns_array(self, fostex_driver, simple_horn):
+    def test_compute_thermal_power_compression_returns_array(
+        self, fostex_driver, simple_horn
+    ):
         """compute_thermal_power_compression() should return a numpy array."""
         freqs = np.linspace(20, 5000, 100)
         tcdb = models.compute_thermal_power_compression(
@@ -2450,7 +2736,9 @@ class TestThermalPowerCompression:
         assert len(tcdb) == len(freqs)
         assert tcdb.dtype.kind == "f"
 
-    def test_compute_thermal_power_compression_zero_at_20C(self, fostex_driver, simple_horn):
+    def test_compute_thermal_power_compression_zero_at_20C(
+        self, fostex_driver, simple_horn
+    ):
         """T=20°C should return zeros array."""
         freqs = np.linspace(20, 5000, 100)
         tcdb = models.compute_thermal_power_compression(
@@ -2462,9 +2750,18 @@ class TestThermalPowerCompression:
     def test_driver_alpha_re_in_DriverSpecs(self):
         """DriverSpecs should have alpha_re field with copper default."""
         d = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
         )
         assert hasattr(d, "alpha_re")
         assert d.alpha_re == pytest.approx(0.00393)
@@ -2472,11 +2769,22 @@ class TestThermalPowerCompression:
     def test_alpha_re_custom_value_used(self, simple_horn):
         """Custom alpha_re on driver should affect the compression magnitude."""
         from dataclasses import replace
+
         freqs = np.linspace(20, 5000, 100)
         d_cu = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, alpha_re=0.00393,  # copper
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            alpha_re=0.00393,  # copper
         )
         d_al = replace(d_cu, alpha_re=0.00430)  # aluminium (higher alpha)
         result_cu = models.horn_response(freqs, d_cu, simple_horn, T_voice=100.0)
@@ -2494,9 +2802,20 @@ class TestNotchFilter:
     def fostex_driver(self):
         """Fostex FE166NV2 driver specs."""
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     @pytest.fixture
@@ -2550,9 +2869,9 @@ class TestNotchFilter:
         spl_bumped = spl + bump
         result = models._apply_notch_filter(freqs, spl_bumped, [1847.0], notch_q=10.0)
         # The bump should be reduced at 1847 Hz
-        assert result[idx_1847] < spl_bumped[idx_1847] - 0.5, (
-            "Notch filter should reduce the bump amplitude at the target frequency"
-        )
+        assert (
+            result[idx_1847] < spl_bumped[idx_1847] - 0.5
+        ), "Notch filter should reduce the bump amplitude at the target frequency"
 
     def test_horn_response_notch_filter_false_no_spl_notched(
         self, fostex_driver, simple_horn
@@ -2560,7 +2879,9 @@ class TestNotchFilter:
         """When notch_filter=False, spl_notched should be None."""
         freqs = np.linspace(20, 5000, 500)
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
+            freqs,
+            fostex_driver,
+            simple_horn,
             notch_filter=False,
             notch_frequencies=[1847.0, 2508.0],
         )
@@ -2572,7 +2893,9 @@ class TestNotchFilter:
         """When notch_filter=True, spl_notched should be a numpy array."""
         freqs = np.linspace(1000, 3500, 2000)
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
+            freqs,
+            fostex_driver,
+            simple_horn,
             notch_filter=True,
             notch_frequencies=[1847.0, 2508.0, 2732.0, 2852.0, 2969.0],
             notch_q=10.0,
@@ -2581,9 +2904,9 @@ class TestNotchFilter:
         assert isinstance(result.spl_notched, np.ndarray)
         assert result.spl_notched.shape == result.spl.shape
         # Notched SPL should differ from raw SPL (not identical arrays)
-        assert not np.allclose(result.spl_notched, result.spl), (
-            "Notched SPL should differ from raw SPL when filter is applied"
-        )
+        assert not np.allclose(
+            result.spl_notched, result.spl
+        ), "Notched SPL should differ from raw SPL when filter is applied"
 
     def test_horn_response_notch_filter_with_none_freqs_stays_none(
         self, fostex_driver, simple_horn
@@ -2591,7 +2914,9 @@ class TestNotchFilter:
         """When notch_filter=True but notch_frequencies=None, spl_notched stays None."""
         freqs = np.linspace(1000, 3500, 1000)
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
+            freqs,
+            fostex_driver,
+            simple_horn,
             notch_filter=True,
             notch_frequencies=None,  # None → not applied
             notch_q=10.0,
@@ -2610,13 +2935,17 @@ class TestNotchFilter:
         """
         freqs = np.linspace(1500, 2200, 1000)
         r_low_q = models.horn_response(
-            freqs, fostex_driver, simple_horn,
+            freqs,
+            fostex_driver,
+            simple_horn,
             notch_filter=True,
             notch_frequencies=[1847.0],
             notch_q=3.0,
         )
         r_high_q = models.horn_response(
-            freqs, fostex_driver, simple_horn,
+            freqs,
+            fostex_driver,
+            simple_horn,
             notch_filter=True,
             notch_frequencies=[1847.0],
             notch_q=30.0,
@@ -2632,14 +2961,14 @@ class TestNotchFilter:
             f"high_q={reduction_high_q:.2f} dB"
         )
 
-    def test_notch_filter_multiple_freqs_all_affected(
-        self, fostex_driver, simple_horn
-    ):
+    def test_notch_filter_multiple_freqs_all_affected(self, fostex_driver, simple_horn):
         """All specified artifact frequencies should show SPL differences after filtering."""
         freqs = np.linspace(1000, 3500, 3000)
         artifact_freqs = [1847.0, 2508.0, 2732.0]
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
+            freqs,
+            fostex_driver,
+            simple_horn,
             notch_filter=True,
             notch_frequencies=artifact_freqs,
             notch_q=10.0,
@@ -2647,9 +2976,9 @@ class TestNotchFilter:
         for af in artifact_freqs:
             idx = np.argmin(np.abs(freqs - af))
             diff = abs(result.spl[idx] - result.spl_notched[idx])
-            assert diff > 0.05, (
-                f"Notch at {af} Hz should change SPL by >0.05 dB, got {diff:.4f} dB"
-            )
+            assert (
+                diff > 0.05
+            ), f"Notch at {af} Hz should change SPL by >0.05 dB, got {diff:.4f} dB"
 
 
 class TestLeFreqDependency:
@@ -2695,28 +3024,57 @@ class TestLeFreqDependency:
     def test_driverspecs_default_no_freq_dependency(self):
         """le_freq_dependency should default to False (constant Le)."""
         d = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
         )
         assert d.le_freq_dependency is False
 
     def test_driverspecs_default_f_ref_is_100hz(self):
         """le_f_ref should default to 100.0 Hz."""
         d = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
         )
         assert d.le_f_ref == 100.0
 
     def test_horn_response_with_freq_dep_le_runs(self):
         """horn_response should run without error when le_freq_dependency=True."""
         d = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, le_freq_dependency=True, le_f_ref=100.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            le_freq_dependency=True,
+            le_f_ref=100.0,
         )
         horn = HornGeometry(
             enclosure_type="BLH",
@@ -2738,16 +3096,37 @@ class TestLeFreqDependency:
         """With le_freq_dependency=True, |Z_e| should be larger at high frequency
         compared to le_freq_dependency=False (same driver, same geometry)."""
         d_const = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, le_freq_dependency=False,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            le_freq_dependency=False,
         )
         d_freq = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, le_freq_dependency=True, le_f_ref=100.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            le_freq_dependency=True,
+            le_f_ref=100.0,
         )
         horn = HornGeometry(
             enclosure_type="BLH",
@@ -2775,16 +3154,37 @@ class TestLeFreqDependency:
         """Near the driver's free-air resonance (fs ~ 50 Hz, f << f_ref),
         frequency-dependent Le should be nearly identical to constant Le."""
         d_const = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, le_freq_dependency=False,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            le_freq_dependency=False,
         )
         d_freq = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, le_freq_dependency=True, le_f_ref=100.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            le_freq_dependency=True,
+            le_f_ref=100.0,
         )
         horn = HornGeometry(
             enclosure_type="BLH",
@@ -2810,15 +3210,37 @@ class TestLeFreqDependency:
     def test_infinite_baffle_with_freq_dep_le(self):
         """infinite_baffle_response should also honour le_freq_dependency."""
         d_const = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, le_freq_dependency=False,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            le_freq_dependency=False,
         )
         d_freq = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, le_freq_dependency=True, le_f_ref=100.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            le_freq_dependency=True,
+            le_f_ref=100.0,
         )
         freqs = np.linspace(20, 5000, 100)
         ib_const = models.infinite_baffle_response(freqs, d_const)
@@ -2826,9 +3248,9 @@ class TestLeFreqDependency:
 
         # High-frequency SPL should be different when Le is frequency-dependent
         idx_hi = int(np.argmin(np.abs(freqs - 5000.0)))
-        assert abs(ib_freq[idx_hi] - ib_const[idx_hi]) > 0.01, (
-            "IB SPL at 5 kHz should differ between freq-dep and const Le"
-        )
+        assert (
+            abs(ib_freq[idx_hi] - ib_const[idx_hi]) > 0.01
+        ), "IB SPL at 5 kHz should differ between freq-dep and const Le"
 
 
 class TestFDDDirectivityIndex:
@@ -2871,16 +3293,20 @@ class TestFDDDirectivityIndex:
         """DI should always increase with frequency."""
         freqs = np.linspace(20, 5000, 200)
         di = models._fdd_directivity_index(freqs, mouth_area=0.03, f_c=300.0, D_max=5.0)
-        assert all(di[i] <= di[i+1] for i in range(len(di)-1)), (
-            "FDD DI should be monotonically increasing with frequency"
-        )
+        assert all(
+            di[i] <= di[i + 1] for i in range(len(di) - 1)
+        ), "FDD DI should be monotonically increasing with frequency"
 
     def test_f_c_controls_transition_point(self):
         """Higher f_c → transition happens at higher frequency."""
         freqs = np.linspace(100, 1000, 100)
         mouth_area = 0.03
-        di_low_fc = models._fdd_directivity_index(freqs, mouth_area, f_c=200.0, D_max=5.0)
-        di_high_fc = models._fdd_directivity_index(freqs, mouth_area, f_c=500.0, D_max=5.0)
+        di_low_fc = models._fdd_directivity_index(
+            freqs, mouth_area, f_c=200.0, D_max=5.0
+        )
+        di_high_fc = models._fdd_directivity_index(
+            freqs, mouth_area, f_c=500.0, D_max=5.0
+        )
         # At 300 Hz, lower f_c (200 Hz) gives more directivity than higher f_c (500 Hz)
         idx_300 = int(np.argmin(np.abs(freqs - 300.0)))
         assert di_low_fc[idx_300] > di_high_fc[idx_300]
@@ -2895,8 +3321,12 @@ class TestFDDDirectivityIndex:
         """Larger D_max → larger DI at all frequencies."""
         freqs = np.linspace(100, 2000, 100)
         mouth_area = 0.03
-        di_small = models._fdd_directivity_index(freqs, mouth_area, f_c=300.0, D_max=3.0)
-        di_large = models._fdd_directivity_index(freqs, mouth_area, f_c=300.0, D_max=6.0)
+        di_small = models._fdd_directivity_index(
+            freqs, mouth_area, f_c=300.0, D_max=3.0
+        )
+        di_large = models._fdd_directivity_index(
+            freqs, mouth_area, f_c=300.0, D_max=6.0
+        )
         # D_max scales linearly with DI
         ratio = di_large / np.maximum(di_small, 1e-12)
         # At mid frequencies, the ratio should be close to 2.0 (6/3)
@@ -2907,9 +3337,13 @@ class TestFDDDirectivityIndex:
         """DI should always be in the range [0, D_max]."""
         freqs = np.logspace(0, 5, 300)
         for D_max in [2.0, 5.0, 10.0]:
-            di = models._fdd_directivity_index(freqs, mouth_area=0.03, f_c=300.0, D_max=D_max)
+            di = models._fdd_directivity_index(
+                freqs, mouth_area=0.03, f_c=300.0, D_max=D_max
+            )
             assert np.all(di >= 0.0), f"DI should be >= 0 for D_max={D_max}"
-            assert np.all(di <= D_max + 1e-9), f"DI should be <= D_max for D_max={D_max}"
+            assert np.all(
+                di <= D_max + 1e-9
+            ), f"DI should be <= D_max for D_max={D_max}"
 
 
 class TestFDDOffAxisSPL:
@@ -2928,7 +3362,9 @@ class TestFDDOffAxisSPL:
         angles = np.array([0.0, 30.0, 60.0])
         result = models._fdd_off_axis_spl(freqs, 0.03, angles, f_c=300.0, D_max=5.0)
         # On-axis should be 0 dB (reference). Small deviations from numerical precision.
-        assert np.allclose(result[:, 0], 0.0, atol=1e-2), "On-axis should always be 0 dB"
+        assert np.allclose(
+            result[:, 0], 0.0, atol=1e-2
+        ), "On-axis should always be 0 dB"
 
     def test_at_low_frequency_all_angles_near_zero(self):
         """At very low frequency (f << f_c), all off-axis angles should be near 0 dB (omni)."""
@@ -2936,9 +3372,9 @@ class TestFDDOffAxisSPL:
         angles = np.array([30.0, 60.0, 90.0])
         result = models._fdd_off_axis_spl(freqs, 0.03, angles, f_c=300.0, D_max=5.0)
         # At 10 Hz, the mouth is infinitesimal relative to wavelength → omni
-        assert np.all(np.abs(result) < 0.05), (
-            f"At very low frequency, off-axis SPL should be ~0 dB (omni). Got: {result}"
-        )
+        assert np.all(
+            np.abs(result) < 0.05
+        ), f"At very low frequency, off-axis SPL should be ~0 dB (omni). Got: {result}"
 
     def test_at_high_frequency_off_axis_losses_increase(self):
         """At high frequency, larger angles should have more negative SPL on average.
@@ -2953,9 +3389,9 @@ class TestFDDOffAxisSPL:
         result = models._fdd_off_axis_spl(freqs, 0.03, angles, f_c=300.0, D_max=5.0)
         for i, f in enumerate(freqs):
             # Off-axis SPL at all angles should be ≤ 0 (on-axis = 0 dB reference)
-            assert all(result[i, j] <= 0.1 for j in range(1, len(angles))), (
-                f"At {f} Hz, all off-axis SPL values should be ≤ 0 dB"
-            )
+            assert all(
+                result[i, j] <= 0.1 for j in range(1, len(angles))
+            ), f"At {f} Hz, all off-axis SPL values should be ≤ 0 dB"
             # The on-axis reference (index 0) should be 0 dB
             assert result[i, 0] == pytest.approx(0.0, abs=0.01)
 
@@ -2965,9 +3401,9 @@ class TestFDDOffAxisSPL:
         angles = np.array([60.0])
         result = models._fdd_off_axis_spl(freqs, 0.03, angles, f_c=300.0, D_max=5.0)
         # The off-axis loss (negative dB) should become more negative at higher freq
-        assert result[:, 0].min() < result[:, 0].max(), (
-            "Off-axis loss at 60° should increase (more negative) at high frequency"
-        )
+        assert (
+            result[:, 0].min() < result[:, 0].max()
+        ), "Off-axis loss at 60° should increase (more negative) at high frequency"
 
     def test_fdd_vs_piston_differ_at_mid_frequencies(self):
         """FDD and piston model should differ at mid frequencies where the transition is active.
@@ -2981,7 +3417,9 @@ class TestFDDOffAxisSPL:
         angles = np.array([0.0, 30.0, 60.0])
         mouth_area = 0.03
         # FDD off-axis SPL
-        result_fdd = models._fdd_off_axis_spl(freqs, mouth_area, angles, f_c=300.0, D_max=5.0)
+        result_fdd = models._fdd_off_axis_spl(
+            freqs, mouth_area, angles, f_c=300.0, D_max=5.0
+        )
         # Piston off-axis SPL (reference)
         result_piston = np.zeros_like(result_fdd)
         a_mouth = np.sqrt(mouth_area / np.pi)
@@ -2991,6 +3429,7 @@ class TestFDDOffAxisSPL:
             x = ka_arr * np.sin(ang_rad)
             x_safe = np.where(x < 0.05, 0.05, x)
             from scipy.special import jv as jv1
+
             j1_vals = jv1(1, x_safe)
             D = (2.0 * j1_vals / (x_safe + 1e-12)) ** 2
             D = np.where(ka_arr < 0.05, 1.0, D)
@@ -3042,9 +3481,20 @@ class TestFDDModeIntegration:
     @pytest.fixture
     def fostex_driver(self):
         return DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83, le=0.0008, xmax=0.0015,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            xmax=0.0015,
         )
 
     @pytest.fixture
@@ -3061,7 +3511,9 @@ class TestFDDModeIntegration:
             fr_tc=2000.0,
         )
 
-    def test_fdd_mode_false_default_off_axis_unchanged(self, fostex_driver, simple_horn):
+    def test_fdd_mode_false_default_off_axis_unchanged(
+        self, fostex_driver, simple_horn
+    ):
         """fdd_mode=False (default) should produce the standard piston off-axis SPL."""
         freqs = np.linspace(200, 5000, 100)
         result = models.horn_response(freqs, fostex_driver, simple_horn, fdd_mode=False)
@@ -3074,31 +3526,38 @@ class TestFDDModeIntegration:
         """fdd_mode=True should set fdd_enabled=True and populate fdd_di."""
         freqs = np.linspace(200, 5000, 100)
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
+            freqs, fostex_driver, simple_horn, fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
         )
         assert result.fdd_enabled is True
         assert result.fdd_di is not None
         assert len(result.fdd_di) == len(freqs)
 
-    def test_fdd_mode_true_fdd_di_increases_with_frequency(self, fostex_driver, simple_horn):
+    def test_fdd_mode_true_fdd_di_increases_with_frequency(
+        self, fostex_driver, simple_horn
+    ):
         """FDD DI should increase with frequency (more directional at high f)."""
         freqs = np.linspace(100, 4000, 100)
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
+            freqs, fostex_driver, simple_horn, fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
         )
         # DI should be monotonically increasing
-        assert all(result.fdd_di[i] <= result.fdd_di[i+1] for i in range(len(result.fdd_di)-1))
+        assert all(
+            result.fdd_di[i] <= result.fdd_di[i + 1]
+            for i in range(len(result.fdd_di) - 1)
+        )
 
     def test_fdd_mode_true_off_axis_spl_affected(self, fostex_driver, simple_horn):
         """With fdd_mode=True, off_axis_spl should be computed (shape correct) and non-None."""
         freqs = np.linspace(200, 4000, 200)
         off_axis_angles = np.array([0.0, 30.0, 60.0, 90.0])
         result_fdd = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0,
-            off_axis_angles=off_axis_angles
+            freqs,
+            fostex_driver,
+            simple_horn,
+            fdd_mode=True,
+            fdd_fc=300.0,
+            fdd_dmax=5.0,
+            off_axis_angles=off_axis_angles,
         )
         assert result_fdd.off_axis_spl is not None
         assert result_fdd.off_axis_spl.shape == (200, 4)
@@ -3111,8 +3570,7 @@ class TestFDDModeIntegration:
         """Result.fdd_di should be a numpy array when fdd_mode=True."""
         freqs = np.linspace(200, 5000, 100)
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
+            freqs, fostex_driver, simple_horn, fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
         )
         assert result.fdd_di is not None
         assert isinstance(result.fdd_di, np.ndarray)
@@ -3124,10 +3582,7 @@ class TestFDDModeIntegration:
     def test_fdd_mode_false_result_has_no_fdd_di(self, fostex_driver, simple_horn):
         """Result.fdd_di should be None when fdd_mode=False."""
         freqs = np.linspace(200, 5000, 100)
-        result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=False
-        )
+        result = models.horn_response(freqs, fostex_driver, simple_horn, fdd_mode=False)
         assert result.fdd_enabled is False
         assert result.fdd_di is None
 
@@ -3136,9 +3591,13 @@ class TestFDDModeIntegration:
         freqs = np.linspace(200, 4000, 100)
         off_axis_angles = np.array([0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0])
         result = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0,
-            off_axis_angles=off_axis_angles
+            freqs,
+            fostex_driver,
+            simple_horn,
+            fdd_mode=True,
+            fdd_fc=300.0,
+            fdd_dmax=5.0,
+            off_axis_angles=off_axis_angles,
         )
         # radiation_angle may or may not be None depending on horn geometry
         if result.radiation_angle is not None:
@@ -3149,40 +3608,40 @@ class TestFDDModeIntegration:
         freqs = np.linspace(20, 5000, 200)
         for D_max in [3.0, 5.0, 8.0]:
             result = models.horn_response(
-                freqs, fostex_driver, simple_horn,
-                fdd_mode=True, fdd_fc=300.0, fdd_dmax=D_max
+                freqs,
+                fostex_driver,
+                simple_horn,
+                fdd_mode=True,
+                fdd_fc=300.0,
+                fdd_dmax=D_max,
             )
-            assert np.all(result.fdd_di <= D_max + 1e-9), (
-                f"FDD DI should never exceed D_max={D_max}"
-            )
+            assert np.all(
+                result.fdd_di <= D_max + 1e-9
+            ), f"FDD DI should never exceed D_max={D_max}"
 
     def test_fdd_mode_with_custom_parameters(self, fostex_driver, simple_horn):
         """Custom f_c and D_max should affect the FDD result."""
         freqs = np.linspace(100, 3000, 100)
         result_low_fc = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=150.0, fdd_dmax=5.0
+            freqs, fostex_driver, simple_horn, fdd_mode=True, fdd_fc=150.0, fdd_dmax=5.0
         )
         result_high_fc = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=600.0, fdd_dmax=5.0
+            freqs, fostex_driver, simple_horn, fdd_mode=True, fdd_fc=600.0, fdd_dmax=5.0
         )
         # At 400 Hz, lower f_c (150 Hz) → more directivity than higher f_c (600 Hz)
         idx_400 = int(np.argmin(np.abs(freqs - 400.0)))
-        assert result_low_fc.fdd_di[idx_400] > result_high_fc.fdd_di[idx_400], (
-            "Lower f_c should give more directivity at mid frequencies"
-        )
+        assert (
+            result_low_fc.fdd_di[idx_400] > result_high_fc.fdd_di[idx_400]
+        ), "Lower f_c should give more directivity at mid frequencies"
 
     def test_fdd_mode_spl_unchanged(self, fostex_driver, simple_horn):
         """FDD mode only changes directivity fields, not the main SPL."""
         freqs = np.linspace(200, 4000, 200)
         result_fdd = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
+            freqs, fostex_driver, simple_horn, fdd_mode=True, fdd_fc=300.0, fdd_dmax=5.0
         )
         result_piston = models.horn_response(
-            freqs, fostex_driver, simple_horn,
-            fdd_mode=False
+            freqs, fostex_driver, simple_horn, fdd_mode=False
         )
         # Main SPL should be identical (FDD only affects directivity, not acoustic response)
         np.testing.assert_allclose(result_fdd.spl, result_piston.spl, rtol=1e-10)
@@ -3245,9 +3704,18 @@ class TestLossyLeModel:
     def test_driverspecs_lossy_le_defaults(self):
         """DriverSpecs should have lossy_le=False, le_R_e_eddy=0.0, le_f_lossy_ref=1000.0."""
         d = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
         )
         assert d.lossy_le is False
         assert d.le_R_e_eddy == 0.0
@@ -3256,10 +3724,22 @@ class TestLossyLeModel:
     def test_horn_response_with_lossy_le_runs(self):
         """horn_response should run without error when lossy_le=True."""
         d = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, lossy_le=True, le_R_e_eddy=1.5, le_f_lossy_ref=1000.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            lossy_le=True,
+            le_R_e_eddy=1.5,
+            le_f_lossy_ref=1000.0,
         )
         horn = HornGeometry(
             enclosure_type="BLH",
@@ -3284,16 +3764,38 @@ class TestLossyLeModel:
         frequency. At 4× f_ref it contributes 16× the base R_e_eddy value.
         """
         d_no_lossy = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, lossy_le=False,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            lossy_le=False,
         )
         d_lossy = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, lossy_le=True, le_R_e_eddy=2.0, le_f_lossy_ref=1000.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            lossy_le=True,
+            le_R_e_eddy=2.0,
+            le_f_lossy_ref=1000.0,
         )
         horn = HornGeometry(
             enclosure_type="BLH",
@@ -3323,16 +3825,38 @@ class TestLossyLeModel:
         At f = f_ref/2: R_lossy = R_e_eddy × 0.25 — only 25% of R_e_eddy.
         """
         d_no = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, lossy_le=False,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            lossy_le=False,
         )
         d_lossy = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, lossy_le=True, le_R_e_eddy=2.0, le_f_lossy_ref=1000.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            lossy_le=True,
+            le_R_e_eddy=2.0,
+            le_f_lossy_ref=1000.0,
         )
         horn = HornGeometry(
             enclosure_type="BLH",
@@ -3366,12 +3890,24 @@ class TestLossyLeModel:
         Total: Z_e = Re + R_lossy(f) + jω·Le(f)
         """
         d = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
             le=0.0008,
-            le_freq_dependency=True, le_f_ref=100.0,  # semi-inductance
-            lossy_le=True, le_R_e_eddy=1.5, le_f_lossy_ref=1000.0,  # Lossy Le
+            le_freq_dependency=True,
+            le_f_ref=100.0,  # semi-inductance
+            lossy_le=True,
+            le_R_e_eddy=1.5,
+            le_f_lossy_ref=1000.0,  # Lossy Le
         )
         horn = HornGeometry(
             enclosure_type="BLH",
@@ -3390,16 +3926,38 @@ class TestLossyLeModel:
     def test_infinite_baffle_with_lossy_le(self):
         """infinite_baffle_response should also honour lossy_le."""
         d_const = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, lossy_le=False,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            lossy_le=False,
         )
         d_lossy = DriverSpecs(
-            fs=49.6, qts=0.27, qes=0.28, qms=7.88, vas=0.0369,
-            re=7.8, bl=7.79, mms=0.00699, cms=0.001472, rms=0.277,
-            sd=0.01327, voltage=2.83,
-            le=0.0008, lossy_le=True, le_R_e_eddy=2.0, le_f_lossy_ref=1000.0,
+            fs=49.6,
+            qts=0.27,
+            qes=0.28,
+            qms=7.88,
+            vas=0.0369,
+            re=7.8,
+            bl=7.79,
+            mms=0.00699,
+            cms=0.001472,
+            rms=0.277,
+            sd=0.01327,
+            voltage=2.83,
+            le=0.0008,
+            lossy_le=True,
+            le_R_e_eddy=2.0,
+            le_f_lossy_ref=1000.0,
         )
         freqs = np.linspace(20, 5000, 200)
         ib_const = models.infinite_baffle_response(freqs, d_const)
@@ -3408,9 +3966,9 @@ class TestLossyLeModel:
         # At 4 kHz (4× f_ref), Lossy Le adds ~32 Ω → more impedance →
         # different SPL. The SPL should differ noticeably.
         idx_4k = int(np.argmin(np.abs(freqs - 4000.0)))
-        assert abs(ib_lossy[idx_4k] - ib_const[idx_4k]) > 0.01, (
-            "IB SPL at 4 kHz should differ between lossy and non-lossy Le models"
-        )
+        assert (
+            abs(ib_lossy[idx_4k] - ib_const[idx_4k]) > 0.01
+        ), "IB SPL at 4 kHz should differ between lossy and non-lossy Le models"
 
 
 class TestDetectNumericalArtifacts:
@@ -3423,9 +3981,7 @@ class TestDetectNumericalArtifacts:
 
     def test_empty_input_returns_empty(self):
         """len(freqs) < 5 should return [] (guard clause)."""
-        result = models._detect_numerical_artifacts(
-            np.array([100.0]), np.array([90.0])
-        )
+        result = models._detect_numerical_artifacts(np.array([100.0]), np.array([90.0]))
         assert result == []
 
     def test_smooth_response_returns_no_artifacts(self):
@@ -3510,8 +4066,10 @@ class TestDetectNumericalArtifacts:
         """Returned artifact frequencies should be sorted low→high."""
         freqs = np.linspace(20, 5000, 1000)
         spl = np.full(1000, 90.0)
-        spl[200] = 115.0; spl[201] = 90.0
-        spl[800] = 115.0; spl[801] = 90.0
+        spl[200] = 115.0
+        spl[201] = 90.0
+        spl[800] = 115.0
+        spl[801] = 90.0
         result = models._detect_numerical_artifacts(freqs, spl)
         assert result == sorted(result)
 
@@ -3598,7 +4156,9 @@ class TestCompoundHorn:
             secondary_mouth_ang=2.0 * np.pi,
         )
 
-    def test_runs_without_error(self, fostex_driver, simple_main_horn, default_compound_chamber):
+    def test_runs_without_error(
+        self, fostex_driver, simple_main_horn, default_compound_chamber
+    ):
         """horn_response_compound() should run without raising an exception."""
         freqs = np.linspace(20, 5000, 200)
         result = models.horn_response_compound(
@@ -3607,7 +4167,9 @@ class TestCompoundHorn:
         assert result.spl is not None
         assert len(result.spl) == len(freqs)
 
-    def test_spl_is_positive(self, fostex_driver, simple_main_horn, default_compound_chamber):
+    def test_spl_is_positive(
+        self, fostex_driver, simple_main_horn, default_compound_chamber
+    ):
         """SPL should be a positive dB value in the pass band."""
         freqs = np.linspace(80, 2000, 100)
         result = models.horn_response_compound(
@@ -3616,7 +4178,9 @@ class TestCompoundHorn:
         # In the pass band the SPL should be above a reasonable floor
         assert np.mean(result.spl[10:50]) > 60.0
 
-    def test_zero_rear_chamber_gives_horn_only_output(self, fostex_driver, simple_main_horn):
+    def test_zero_rear_chamber_gives_horn_only_output(
+        self, fostex_driver, simple_main_horn
+    ):
         """With no rear chamber (vrc_rear=0, secondary_mouth_area=0) the solver
         should still run and produce a valid response (direct rear radiation path)."""
         freqs = np.linspace(20, 5000, 100)
@@ -3683,7 +4247,9 @@ class TestCompoundHorn:
             "adding rear chamber should change the response"
         )
 
-    def test_impedance_is_complex(self, fostex_driver, simple_main_horn, default_compound_chamber):
+    def test_impedance_is_complex(
+        self, fostex_driver, simple_main_horn, default_compound_chamber
+    ):
         """Electrical impedance should be complex-valued."""
         freqs = np.linspace(20, 2000, 100)
         result = models.horn_response_compound(
@@ -3692,7 +4258,9 @@ class TestCompoundHorn:
         assert result.impedance.dtype == np.complex128
         assert np.all(result.impedance != 0)
 
-    def test_excursion_positive(self, fostex_driver, simple_main_horn, default_compound_chamber):
+    def test_excursion_positive(
+        self, fostex_driver, simple_main_horn, default_compound_chamber
+    ):
         """Driver excursion should be a positive mm value below resonance."""
         freqs = np.linspace(20, 200, 100)
         result = models.horn_response_compound(
@@ -3701,7 +4269,9 @@ class TestCompoundHorn:
         assert np.all(result.excursion >= 0)
         assert np.mean(result.excursion[5:30]) > 0.01  # meaningful excursion
 
-    def test_secondary_mouth_area_adds_contribution(self, fostex_driver, simple_main_horn):
+    def test_secondary_mouth_area_adds_contribution(
+        self, fostex_driver, simple_main_horn
+    ):
         """With secondary_mouth_area > 0, the response should differ from
         when it is 0, confirming the secondary path contributes."""
         freqs = np.linspace(20, 2000, 200)
@@ -3726,9 +4296,7 @@ class TestCompoundHorn:
             "secondary_mouth_area should affect the response"
         )
 
-    def test_compound_vs_tapped_horn_are_different_topologies(
-        self, fostex_driver
-    ):
+    def test_compound_vs_tapped_horn_are_different_topologies(self, fostex_driver):
         """The compound horn and tapped horn should produce different responses,
         as they are fundamentally different topologies."""
         from pyhorn_core.config.models import TappedHornGeometry
@@ -3761,7 +4329,9 @@ class TestCompoundHorn:
             n_segments=60,
         )
         compound = CompoundChamber(vrc_rear=0.01, lrc_rear=0.05)
-        r_compound = models.horn_response_compound(freqs, fostex_driver, main_horn, compound)
+        r_compound = models.horn_response_compound(
+            freqs, fostex_driver, main_horn, compound
+        )
 
         rms_diff = np.sqrt(np.mean((r_tapped.spl - r_compound.spl) ** 2))
         assert rms_diff > 0.5, (
@@ -4347,22 +4917,48 @@ class TestCompoundHornDualDriver:
         confirming the rear driver is computed independently."""
         freqs = np.linspace(20, 2000, 200)
         rear_driver_light = DriverSpecs(
-            fs=120.0, qts=0.35, qes=0.38, qms=3.5, vas=8e-3,
-            re=8.0, bl=5.5, mms=1.0e-3, cms=1.76e-4, rms=0.22,
-            sd=0.78e-2, voltage=2.83, le=3.5e-4,
+            fs=120.0,
+            qts=0.35,
+            qes=0.38,
+            qms=3.5,
+            vas=8e-3,
+            re=8.0,
+            bl=5.5,
+            mms=1.0e-3,
+            cms=1.76e-4,
+            rms=0.22,
+            sd=0.78e-2,
+            voltage=2.83,
+            le=3.5e-4,
         )
         rear_driver_heavy = DriverSpecs(
-            fs=120.0, qts=0.35, qes=0.38, qms=3.5, vas=8e-3,
-            re=8.0, bl=5.5, mms=5.0e-3, cms=0.35e-4, rms=0.22,
-            sd=0.78e-2, voltage=2.83, le=3.5e-4,
+            fs=120.0,
+            qts=0.35,
+            qes=0.38,
+            qms=3.5,
+            vas=8e-3,
+            re=8.0,
+            bl=5.5,
+            mms=5.0e-3,
+            cms=0.35e-4,
+            rms=0.22,
+            sd=0.78e-2,
+            voltage=2.83,
+            le=3.5e-4,
         )
         compound_light = CompoundChamber(
-            vrc_rear=0.01, lrc_rear=0.05, secondary_mouth_area=0.03,
-            ch_dual_driver=True, rear_driver=rear_driver_light,
+            vrc_rear=0.01,
+            lrc_rear=0.05,
+            secondary_mouth_area=0.03,
+            ch_dual_driver=True,
+            rear_driver=rear_driver_light,
         )
         compound_heavy = CompoundChamber(
-            vrc_rear=0.01, lrc_rear=0.05, secondary_mouth_area=0.03,
-            ch_dual_driver=True, rear_driver=rear_driver_heavy,
+            vrc_rear=0.01,
+            lrc_rear=0.05,
+            secondary_mouth_area=0.03,
+            ch_dual_driver=True,
+            rear_driver=rear_driver_heavy,
         )
         r_light = models.horn_response_compound(
             freqs, fostex_driver, main_horn, compound_light
@@ -4537,7 +5133,7 @@ class TestSlavbasImpedance:
         from pyhorn_core.pyhorn_physics import slavbas_impedance
 
         vrc, rleak = 0.025, 500.0
-        f_low = 5000.0   # Hz — well above corner (~2768 Hz)
+        f_low = 5000.0  # Hz — well above corner (~2768 Hz)
         f_high = 10000.0  # Hz — octave above f_low
         Z_low = abs(slavbas_impedance(freq=f_low, vrc=vrc, rleak=rleak))
         Z_high = abs(slavbas_impedance(freq=f_high, vrc=vrc, rleak=rleak))
@@ -4630,6 +5226,7 @@ class TestRearChamberCalibration:
     def _gdb1_horn(self, vrc: float, lrc: float = 0.15) -> HornGeometry:
         """Return GdB1 BLH horn geometry with the given rear chamber params."""
         from pyhorn_core.config.models import RearChamber
+
         horn = HornGeometry(
             enclosure_type="BLH",
             throat_area=0.0080,
@@ -4650,7 +5247,9 @@ class TestRearChamberCalibration:
             fr_rc=2000.0,
         )
         # Attach rear_chamber attribute for chamber_type="coupling"
-        horn.rear_chamber = RearChamber(vrc=vrc, lrc=lrc, fr_rc=2000.0, chamber_type="coupling")
+        horn.rear_chamber = RearChamber(
+            vrc=vrc, lrc=lrc, fr_rc=2000.0, chamber_type="coupling"
+        )
         return horn
 
     def test_rear_chamber_calibration_sweep(self):
@@ -4686,7 +5285,7 @@ class TestRearChamberCalibration:
         idx_60hz = int(np.argmin(np.abs(freqs - 60.0)))
         spl_at_60hz = [res[idx_60hz] for _, res in results]
 
-        spl_min_vrc = spl_at_60hz[0]   # V_rc = 0.010 m³
+        spl_min_vrc = spl_at_60hz[0]  # V_rc = 0.010 m³
         spl_max_vrc = spl_at_60hz[-1]  # V_rc = 0.050 m³
         spl_diff = abs(spl_max_vrc - spl_min_vrc)
 
@@ -4708,5 +5307,7 @@ class TestRearChamberCalibration:
         idx80 = int(np.argmin(np.abs(freqs - 80.0)))
         idx100 = int(np.argmin(np.abs(freqs - 100.0)))
         for vrc_val, spl_arr in results:
-            print(f"{vrc_val:>12.3f} {spl_arr[idx45]:>8.2f} {spl_arr[idx_60hz]:>8.2f} "
-                  f"{spl_arr[idx80]:>8.2f} {spl_arr[idx100]:>8.2f}")
+            print(
+                f"{vrc_val:>12.3f} {spl_arr[idx45]:>8.2f} {spl_arr[idx_60hz]:>8.2f} "
+                f"{spl_arr[idx80]:>8.2f} {spl_arr[idx100]:>8.2f}"
+            )
