@@ -239,6 +239,9 @@ class HornGeometry:
 
     # Segments represented as a list of (length_m, area_m2, [optional_fr])
     segments: List[Tuple[float, ...]] = field(default_factory=list)
+    # Sensitivity calibration: [[freq_hz, delta_db], ...].
+    # Set from project.sensitivity_db by parse_horn_project.
+    sensitivity_db: Optional[np.ndarray] = None
     # Bends represented as area steps: list of (area_before_m2, area_after_m2)
     bends: Optional[List[Tuple[float, float]]] = None
     _folded_plot_override: Optional[List[Tuple[float, ...]]] = field(
