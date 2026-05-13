@@ -613,7 +613,7 @@ def horn_response_tapped(
         impedance[i] = Z_motor
 
         if omega > 0:
-            cone_excursion[i] = abs(u_cone) / omega
+            cone_excursion[i] = abs(u_cone) / omega * 1000.0
             cone_velocity_arr[i] = abs(u_cone)
             cone_acceleration_arr[i] = abs(1j * omega * u_cone)
         else:
