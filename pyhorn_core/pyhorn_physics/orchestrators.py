@@ -1682,22 +1682,26 @@ def _horn_response_impl(
         p_elec = driver.voltage**2 * z_in.real / z_e_sq_mag
 
         p_ac_mouth = np.abs(U_mouth) ** 2 * Zrad.real
-        if is_blh:
-            p_acoustic = p_ac_mouth + np.abs(U_driver) ** 2 * Zrad_front.real
-        else:
-            p_acoustic = p_ac_mouth
+        p_acoustic_direct = np.abs(U_driver) ** 2 * Zrad_front.real if is_blh else 0.0
+        # Apply sensitivity_db calibration at the power level: only the horn-side
+        # acoustic power is calibrated (it is the component modeled via the TMM).
+        # The direct-radiation acoustic power is added uncalibrated.
+        p_acoustic_horn_cal = p_ac_mouth * 10 ** (sensitivity_at_freqs[idx] / 10.0)
+        p_acoustic = p_acoustic_horn_cal + p_acoustic_direct
 
         efficiency_out[idx] = (100.0 * p_acoustic / p_elec) if p_elec > 1e-12 else 0.0
         electrical_input_power_out[idx] = p_elec
-        acoustic_power_out[idx] = p_acoustic
+        acoustic_power_out[idx] = p_ac_mouth  # mouth radiation power (matches docstring)
         # CRIT-3 fix: dB/W/m SPL using acoustic power.
         # P_REF = 10^-12 W gives 10*log10(P_acoustic/1e-12) = 10*log10(P_acoustic) + 120 dB.
         # sensitivity_db calibrates pyhorn's absolute HF level to Hornresp's dB/W/m reference.
         # Default sensitivity_db=0.0 gives the raw acoustic-power-based level.
         # For FE166NV2 at V=2.83 matching Hornresp: sensitivity_db ≈ -15.0 dB (HF band).
+        # CALIBRATION AT POWER LEVEL: sensitivity_db is applied to P_horn first,
+        # then P_direct is added uncalibrated: P_total = P_horn_cal + P_direct.
         if p_acoustic > 1e-15 and p_elec > 1e-12:
             spl_power_based_out[idx] = acoustic_power_to_spl_dB_W_m(
-                p_acoustic, sensitivity_db=sensitivity_at_freqs[idx]
+                p_acoustic, sensitivity_db=0.0
             )
         else:
             spl_power_based_out[idx] = 0.0
