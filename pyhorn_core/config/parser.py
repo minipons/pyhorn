@@ -417,6 +417,9 @@ def parse_horn_geometry(filepath: Path | str | dict) -> HornGeometry:
     else:
         filepath = Path(filepath)
         data = _load_file(filepath)
+        # Filter out non-geometry fields (e.g. 'name', 'notes') before passing to HornGeometry
+        horn_fields = HornGeometry.__dataclass_fields__.keys()
+        data = {k: v for k, v in data.items() if k in horn_fields}
     _validate_horn_geometry(data)
 
     # Handle chained profile sections (new format)
