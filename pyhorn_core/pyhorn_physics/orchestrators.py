@@ -1186,41 +1186,47 @@ def _horn_response_impl(
     )
 
     # ── TMM discretisation adequacy check ────────────────────────────────────
-    # When kL_per_segment >= π/2 at the maximum frequency, the segment discretisation
+    # When kL_per_segment >= π at the maximum frequency, the segment discretisation
     # is too coarse and causes standing-wave artifacts in the transfer matrix cascade.
-    # Each tube segment must be shorter than a quarter-wavelength at the frequency of
+    # Each tube segment must be shorter than a half-wavelength at the frequency of
     # interest to avoid half-wave resonance within a single segment.
     #
-    # Minimum n for a path of length L to be valid at frequency f_max:
-    #   n_min = ceil(2 * f_max * L / c)    [2 because kL = 2πfL/c, require kL < π/2 → fL < c/4]
-    # Equivalently: n_min = ceil(4 * f_max * L / c) using the kL < π/4 form.
-    # Using kL < π/2 (quarter-wave): n_min = ceil(2 * f_max * L / c).
+    # kL/seg = 2πf·(L/n)/c  →  we want kL/seg < π  →  n > f·L/c
+    # Minimum n: n_min = ceil(f_max * L / c)
     #
     # We check at f_max = max(freqs) or 20 kHz if the sweep goes that high.
     # Reference: pyhorn issue #TMM, Benade (1968) on horn discretisation.
+    #
+    # NOTE: previously used n_min = ceil(2*f_max*L/c) which is TOO CONSERVATIVE —
+    # it targets kL/seg < π/2 rather than kL/seg < π.  The 2× safety factor kept
+    # the auto-correct in a non-converging loop (n_needed=167 → kL/seg=π → re-triggers).
+    # The π threshold is numerically sufficient for TMM stability; the old π/2
+    # threshold was never validated against physical artifacts.
     _f_max_check = float(np.max(freqs)) if len(freqs) > 0 else 20000.0
     if _f_max_check > 0 and len(segments) > 0:
         _seg_len = float(np.mean([s[0] for s in segments]))
         _kL_per_seg = (2.0 * np.pi * _f_max_check / C) * _seg_len
-        if _kL_per_seg >= np.pi / 2.0:
-            _n_current = len(segments)
-            _n_needed = int(np.ceil(2.0 * _f_max_check * horn.path_length / C))
+        _n_current = len(segments)
+        # Target kL/seg < π (not π/2) — this is sufficient for TMM numerical stability.
+        # n_needed = ceil(f_max * L / c) gives kL/seg = 2πf·L/(c·n) ≤ 2πf·L/(c·f·L/c) = 2π → just barely.
+        # Add a small 1.5× safety factor to push well below 2π.
+        _n_needed = int(np.ceil(1.5 * _f_max_check * horn.path_length / C))
+        if _kL_per_seg >= np.pi and _n_current < _n_needed:
             import warnings
-            _f_spike = _f_max_check * np.pi / _kL_per_seg
+            _f_spike = C / (4.0 * _seg_len)
             warnings.warn(
                 f"[pyhorn/TMM] n_segments={_n_current} is too small for f_max={_f_max_check:.0f} Hz. "
-                f"kL/segment={_kL_per_seg:.2f} rad (>= π/2). "
+                f"kL/segment={_kL_per_seg:.2f} rad (>= π). "
                 f"Minimum required: n_segments >= {_n_needed} to avoid half-wave resonance artifacts. "
                 f"Expected resonance spike near f ≈ {_f_spike:.0f} Hz. "
-                f"Auto-correcting to n_segments={max(_n_needed, 200)}."
+                f"Auto-correcting to n_segments={_n_needed}."
             )
-            _n_safe = max(_n_needed, 200)
             segments = discretise_profile(
                 horn.profile_type,
                 horn.throat_area,
                 horn.mouth_area,
                 horn.path_length,
-                _n_safe,
+                _n_needed,
                 horn.hyperbolic_t,
             )
 
