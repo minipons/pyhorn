@@ -9,6 +9,7 @@ fr_tc: 2000
 hyperbolic_t: 0.35
 lpt: 0.0
 mouth_area: 0.06
+mouth_radiation: anechoic
 n_segments: 50
 path_length: 1.53
 profile_type: hyperbolic

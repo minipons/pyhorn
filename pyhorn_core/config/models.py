@@ -156,6 +156,16 @@ class HornGeometry:
 
     ang: float = 6.283185307  # Solid radiation angle (steradians), default 2*pi
 
+    # Mouth radiation boundary condition.
+    # "levine" (default): Levine/Inglis exact formula — circular piston in an infinite
+    #   baffle, giving reactive + resistive radiation impedance.  Models a reflecting
+    #   wall in front of the horn mouth.
+    # "anechoic": Plane-wave radiation — Z_rad = rho*c / S_mouth (purely resistive).
+    #   Models an anechoic (non-reflective) termination, matching Hornresp's
+    #   "ignore room resonance" option.  Recommended for comparing against Hornresp
+    #   dB/W/m SPL data unless the room contribution is explicitly modeled.
+    mouth_radiation: str = "levine"
+
     # Rear chamber
     vrc: float = 0.0  # Rear chamber volume (m³)
     lrc: float = 0.0  # Rear chamber average length (m)

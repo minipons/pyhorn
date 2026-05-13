@@ -85,7 +85,6 @@ Public API
      - Convert acoustic power (W) to SPL in dB/W/m, applying a sensitivity
        offset.  Used for CRIT-3 Hornresp calibration.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -157,10 +156,10 @@ from pyhorn_core.pyhorn_physics import (
     infinite_baffle_response,
 )
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SimulationResult
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 @dataclass
 class SimulationResult:
@@ -216,25 +215,8 @@ class SimulationResult:
 # Helper functions
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def _pressure_to_spl(pressure: np.ndarray) -> np.ndarray:
     return 20 * np.log10(np.abs(pressure) / 2e-5 + 1e-12)
-
-
-def _power_sum_spl(*spl_components: Optional[np.ndarray]) -> np.ndarray:
-    total_power = None
-    for component in spl_components:
-        if component is None:
-            continue
-        component_power = np.power(10.0, np.asarray(component, dtype=float) / 10.0)
-        total_power = (
-            component_power if total_power is None else total_power + component_power
-        )
-
-    if total_power is None:
-        return np.array([], dtype=float)
-
-    return 10.0 * np.log10(np.maximum(total_power, 1e-12))
 
 
 def acoustic_power_to_spl_dB_W_m(
@@ -327,7 +309,7 @@ def _compute_futtrup_gdlimit(freqs: np.ndarray) -> np.ndarray:
     GDlimit = 1000 × 1160.6 / (5643 × f^0.81511 − f)  [ms]
     Below ~50 Hz the denominator approaches zero; clamp to a safe upper bound.
     """
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(divide='ignore', invalid='ignore'):
         denominator = 5643.0 * freqs**0.81511 - freqs
         return np.where(
             denominator > 1.0,
@@ -353,7 +335,6 @@ def compute_thermal_power_compression(
     result_nominal = _run_horn_response_internal(freqs, driver, horn)
 
     from dataclasses import replace
-
     driver_hot = replace(driver, re=re_heated)
     result_hot = _run_horn_response_internal(freqs, driver_hot, horn)
 
@@ -364,20 +345,13 @@ def compute_thermal_power_compression(
         w = 2 * np.pi * f
         z_in_nom = result_nominal.impedance[idx]
         z_in_hot = result_hot.impedance[idx]
-        le_eff = (
-            _le_freq_dependent(driver.le, f, driver.le_f_ref)
-            if driver.le_freq_dependency
-            else driver.le
-        )
+        le_eff = _le_freq_dependent(driver.le, f, driver.le_f_ref) if driver.le_freq_dependency else driver.le
         R_lossy = (
-            float(
-                _lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real
-            )
-            if driver.lossy_le
-            else 0.0
+            float(_lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real)
+            if driver.lossy_le else 0.0
         )
-        z_e_sq_nom = (re_nominal + R_lossy) ** 2 + (w * le_eff) ** 2
-        z_e_sq_hot = (re_heated + R_lossy) ** 2 + (w * le_eff) ** 2
+        z_e_sq_nom = (re_nominal + R_lossy)**2 + (w * le_eff) ** 2
+        z_e_sq_hot = (re_heated + R_lossy)**2 + (w * le_eff) ** 2
 
         if z_e_sq_nom > 0:
             p_elec_nom[idx] = driver.voltage**2 * z_in_nom.real / z_e_sq_nom
@@ -397,7 +371,6 @@ def compute_thermal_power_compression(
 # ─────────────────────────────────────────────────────────────────────────────
 # Main orchestrators
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 def _run_horn_response_internal(
     freqs: np.ndarray, driver: "DriverSpecs", horn: "HornGeometry"
@@ -456,18 +429,10 @@ def horn_response(
         FDD maximum directivity index in dB.
     """
     return _horn_response_impl(
-        freqs,
-        driver,
-        horn,
-        _thermal_T_voice=T_voice,
-        compute_distortion=compute_distortion,
-        off_axis_angles=off_axis_angles,
-        notch_filter=notch_filter,
-        notch_frequencies=notch_frequencies,
-        notch_q=notch_q,
-        fdd_mode=fdd_mode,
-        fdd_fc=fdd_fc,
-        fdd_dmax=fdd_dmax,
+        freqs, driver, horn, _thermal_T_voice=T_voice,
+        compute_distortion=compute_distortion, off_axis_angles=off_axis_angles,
+        notch_filter=notch_filter, notch_frequencies=notch_frequencies, notch_q=notch_q,
+        fdd_mode=fdd_mode, fdd_fc=fdd_fc, fdd_dmax=fdd_dmax,
     )
 
 
@@ -577,10 +542,8 @@ def horn_response_tapped(
             if abs(denom) < 1e-30:
                 Z_in_front = Zc_seg
             else:
-                Z_in_front = (
-                    Zc_seg
-                    * (Z_in_front + 1j * Zc_seg * np.tan(kl))
-                    / (Zc_seg + 1j * Z_in_front * np.tan(kl))
+                Z_in_front = Zc_seg * (Z_in_front + 1j * Zc_seg * np.tan(kl)) / (
+                    Zc_seg + 1j * Z_in_front * np.tan(kl)
                 )
 
         Z_tap_rear = rear_load_at_tap(f)
@@ -590,25 +553,16 @@ def horn_response_tapped(
         Y_total = Y_front + Y_rear
         Z_total_ac = 1.0 / Y_total if abs(Y_total) > 1e-30 else 1e30
 
-        Z_mech_driver = (
-            driver.mms * omega * 1j + driver.rms + 1.0 / (driver.cms * 1j * omega)
-            if omega > 0
-            else 0.0
-        )
+        Z_mech_driver = (driver.mms * omega * 1j +
+                         driver.rms +
+                         1.0 / (driver.cms * 1j * omega) if omega > 0 else 0.0)
         Z_mech_total = Z_mech_driver + Z_total_ac * S_d**2
 
         Bl = driver.bl
-        le_eff = (
-            _le_freq_dependent(driver.le, f, driver.le_f_ref)
-            if driver.le_freq_dependency
-            else driver.le
-        )
+        le_eff = _le_freq_dependent(driver.le, f, driver.le_f_ref) if driver.le_freq_dependency else driver.le
         R_lossy = (
-            float(
-                _lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real
-            )
-            if driver.lossy_le
-            else 0.0
+            float(_lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real)
+            if driver.lossy_le else 0.0
         )
         Z_e_local = driver.re + R_lossy + 1j * omega * le_eff
         F_bl = Bl * driver.voltage / Z_e_local
@@ -675,11 +629,9 @@ def horn_response_tapped(
                 dir_factor = 1.0
             else:
                 ka_theta = ka_mouth * np.sin(theta)
-                dir_factor = (
-                    2.0
-                    * (np.sin(ka_theta) - ka_theta * np.cos(ka_theta))
-                    / (ka_theta**3)
-                )
+                dir_factor = 2.0 * (
+                    np.sin(ka_theta) - ka_theta * np.cos(ka_theta)
+                ) / (ka_theta**3)
                 dir_factor = max(dir_factor, 0.0)
             off_axis_spl_arr[i, j] = SPL_ref + 10.0 * np.log10(max(dir_factor, 1e-12))
 
@@ -698,8 +650,7 @@ def horn_response_tapped(
                 dir_factor = np.where(
                     abs(ka_theta) < 1e-9,
                     1.0,
-                    2.0
-                    * (np.sin(ka_theta) - ka_theta * np.cos(ka_theta))
+                    2.0 * (np.sin(ka_theta) - ka_theta * np.cos(ka_theta))
                     / (ka_theta**3),
                 )
                 dir_factor = np.maximum(dir_factor, 1e-12)
@@ -714,9 +665,7 @@ def horn_response_tapped(
         cone_velocity=cone_velocity_arr,
         cone_acceleration=cone_acceleration_arr,
         group_delay=group_delay,
-        group_delay_per_period=(
-            group_delay / 1000.0 * freqs if group_delay is not None else None
-        ),
+        group_delay_per_period=group_delay / 1000.0 * freqs if group_delay is not None else None,
         phase=phase,
         efficiency_pct=efficiency,
         electrical_input_power=electrical_power,
@@ -789,9 +738,7 @@ def horn_response_compound(
     else:
         main_segments = []
 
-    main_mouth_area = max(
-        main_segments[-1][1] if main_segments else horn.mouth_area, 1e-12
-    )
+    main_mouth_area = max(main_segments[-1][1] if main_segments else horn.mouth_area, 1e-12)
     secondary_mouth_area = max(compound.secondary_mouth_area, 1e-12)
     main_path = sum(seg[0] for seg in main_segments)
 
@@ -803,7 +750,6 @@ def horn_response_compound(
             sec_path = 0.1
         sec_seg_count = max(horn.n_segments, 10)
         from pyhorn_core.solver.profiles import discretise_profile as _disc
-
         sec_segs = _disc(
             sec_profile,
             main_mouth_area,
@@ -814,9 +760,7 @@ def horn_response_compound(
         )
         secondary_segments = [(s[0], s[1]) for s in sec_segs]
 
-    secondary_path = (
-        sum(seg[0] for seg in secondary_segments) if secondary_segments else 0.0
-    )
+    secondary_path = sum(seg[0] for seg in secondary_segments) if secondary_segments else 0.0
 
     S_d = driver.sd
     a_sd = np.sqrt(S_d / np.pi)
@@ -860,9 +804,7 @@ def horn_response_compound(
                 Z_in_front = Zc_seg * (Z_in_front + 1j * Zc_seg * tan_kl) / denom
 
         C_rc = compound.vrc_rear / (rho * c**2) if compound.vrc_rear > 0 else 0.0
-        M_rc = (
-            rho * compound.lrc_rear / S_d if compound.lrc_rear > 0 and S_d > 0 else 0.0
-        )
+        M_rc = rho * compound.lrc_rear / S_d if compound.lrc_rear > 0 and S_d > 0 else 0.0
         C_nck = compound.vtc_rear / (rho * c**2) if compound.vtc_rear > 0 else 0.0
 
         Z_rear_chamber = 0.0j
@@ -885,17 +827,10 @@ def horn_response_compound(
         Y_total = Y_front + Y_rear
         Z_total_ac = 1.0 / Y_total if abs(Y_total) > 1e-30 else 1e30
 
-        le_eff = (
-            _le_freq_dependent(driver.le, f, driver.le_f_ref)
-            if driver.le_freq_dependency
-            else driver.le
-        )
+        le_eff = _le_freq_dependent(driver.le, f, driver.le_f_ref) if driver.le_freq_dependency else driver.le
         R_lossy = (
-            float(
-                _lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real
-            )
-            if driver.lossy_le
-            else 0.0
+            float(_lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real)
+            if driver.lossy_le else 0.0
         )
         Z_e = driver.re + R_lossy + 1j * w * le_eff
         Z_ms = driver.rms + 1j * (w * driver.mms - 1.0 / (w * driver.cms))
@@ -905,11 +840,7 @@ def horn_response_compound(
         Z_mech_total = Z_mt + Z_total_ac * S_d**2
 
         Z_mech_total_load = Z_ms + (Z_in_front + Z_rear_total) * S_d**2
-        Z_in_elec = (
-            Z_e + driver.bl**2 / Z_mech_total_load
-            if abs(Z_mech_total_load) > 1e-12
-            else Z_e
-        )
+        Z_in_elec = Z_e + driver.bl**2 / Z_mech_total_load if abs(Z_mech_total_load) > 1e-12 else Z_e
 
         Bl = driver.bl
         F_bl = Bl * driver.voltage / Z_e
@@ -942,7 +873,9 @@ def horn_response_compound(
 
         r_main = 1.0 + main_path
         p_horn_front = (
-            1j * w * rho / ang_main * U_main_mouth * np.exp(-1j * w / c * r_main)
+            1j * w * rho / ang_main
+            * U_main_mouth
+            * np.exp(-1j * w / c * r_main)
         )
         main_pressure[i] = p_horn_front
 
@@ -967,8 +900,7 @@ def horn_response_compound(
 
             le_eff_rd = (
                 _le_freq_dependent(rd.le, f, rd.le_f_ref)
-                if rd.le_freq_dependency
-                else rd.le
+                if rd.le_freq_dependency else rd.le
             )
             Z_e_rd = rd.re + 1j * w * le_eff_rd
             Z_ms_rd = rd.rms + 1j * (w * rd.mms - 1.0 / (w * rd.cms))
@@ -1005,16 +937,19 @@ def horn_response_compound(
 
             Zrad_sec_mouth = radiation_impedance(f, secondary_mouth_area, ang_rear)
             r_sec = 1.0 + secondary_path
-            p_rear = 1j * w * rho / ang_rear * U_sec_mouth * np.exp(-1j * w / c * r_sec)
+            p_rear = (
+                1j * w * rho / ang_rear
+                * U_sec_mouth
+                * np.exp(-1j * w / c * r_sec)
+            )
 
             Z_in_elec_rd = (
-                Z_e_rd + Bl_rd**2 / Z_mech_rd if abs(Z_mech_rd) > 1e-12 else Z_e_rd
+                Z_e_rd + Bl_rd**2 / Z_mech_rd
+                if abs(Z_mech_rd) > 1e-12 else Z_e_rd
             )
-            Z_in_elec_total = (
-                1.0 / (1.0 / Z_in_elec + 1.0 / Z_in_elec_rd)
-                if abs(Z_in_elec_rd) > 1e-12
-                else Z_in_elec
-            )
+            Z_in_elec_total = 1.0 / (
+                1.0 / Z_in_elec + 1.0 / Z_in_elec_rd
+            ) if abs(Z_in_elec_rd) > 1e-12 else Z_in_elec
             Zrad_rear = Zrad_sec_mouth
             if w > 0:
                 cone_velocity_arr[i] = abs(u_cone)
@@ -1023,9 +958,7 @@ def horn_response_compound(
                 cone_velocity_arr[i] = 0.0
                 cone_accel_arr[i] = 0.0
         else:
-            ang_rear_eff = (
-                ang_rear if compound.secondary_mouth_area > 0 else 2.0 * np.pi
-            )
+            ang_rear_eff = ang_rear if compound.secondary_mouth_area > 0 else 2.0 * np.pi
             Zrad_rear = radiation_impedance(f, S_d, ang_rear_eff, _Zc=Zc_sd, _a=a_sd)
             r_rear = 1.0
             if abs(Z_rear_total) > 1e-30:
@@ -1113,9 +1046,7 @@ def horn_response_compound(
         cone_velocity=cone_velocity_arr,
         cone_acceleration=cone_accel_arr,
         group_delay=group_delay,
-        group_delay_per_period=(
-            group_delay / 1000.0 * freqs if group_delay is not None else None
-        ),
+        group_delay_per_period=group_delay / 1000.0 * freqs if group_delay is not None else None,
         phase=phase,
         efficiency_pct=efficiency,
         electrical_input_power=electrical_power,
@@ -1152,9 +1083,7 @@ def _horn_response_impl(
 
     enc = horn.enclosure_type.upper()
     is_blh = enc == "BLH"
-    is_tl = (
-        enc == "TL"
-    )  # Finite transmission line: mouth radiation only, no direct summing
+    is_tl = enc == "TL"  # Finite transmission line: mouth radiation only, no direct summing
 
     path_diff = horn.path_diff
     if is_blh and path_diff == 0.0:
@@ -1186,7 +1115,6 @@ def _horn_response_impl(
         )
     elif horn.discretisation == "geometry" and horn.conical_segments:
         from pyhorn_core.solver.geometry_discretise import discretise_geometry_aware
-
         segments, bends_ext, bend_positions = discretise_geometry_aware(
             horn.conical_segments,
             horn.width,
@@ -1251,23 +1179,15 @@ def _horn_response_impl(
     z_in_out = np.zeros(len(freqs), dtype=complex)
     exc_out = np.zeros(len(freqs))
     total_pressure_out = np.zeros(len(freqs), dtype=complex)
-    direct_pressure_out = (
-        np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
-    )
-    horn_pressure_out = (
-        np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
-    )
+    direct_pressure_out = np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
+    horn_pressure_out = np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
     throat_impedance_out = np.zeros(len(freqs), dtype=complex)
     efficiency_out = np.zeros(len(freqs))
     electrical_input_power_out = np.zeros(len(freqs))
     cone_velocity_out = np.zeros(len(freqs))
     cone_acceleration_out = np.zeros(len(freqs))
-    diaphragm_pressure_horn_side_out = (
-        np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
-    )
-    diaphragm_pressure_direct_side_out = (
-        np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
-    )
+    diaphragm_pressure_horn_side_out = np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
+    diaphragm_pressure_direct_side_out = np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
     particle_velocity_throat_out = np.zeros(len(freqs))
     particle_velocity_mouth_out = np.zeros(len(freqs))
     particle_velocity_port_out = np.zeros(len(freqs))
@@ -1293,7 +1213,9 @@ def _horn_response_impl(
             )
 
         if horn.ap1 > 0:
-            matrices.append(throat_adapter_tmatrix(horn, f, fr=0.0))
+            matrices.append(
+                throat_adapter_tmatrix(horn, f, fr=0.0)
+            )
             # When lpt = 0, the throat adapter T-matrix is identity (zero-length tube).
             # Any area mismatch between ap1 and the horn's throat_area becomes a
             # phantom step — add it explicitly here.  For lpt > 0 the tube T-matrix
@@ -1359,6 +1281,7 @@ def _horn_response_impl(
             _a=a_mouth,
             mouth_width=mouth_w,
             mouth_height=mouth_h,
+            mouth_radiation=horn.mouth_radiation,
         )
 
         Z_throat = (T[0, 0] * Zrad + T[0, 1]) / (T[1, 0] * Zrad + T[1, 1])
@@ -1391,7 +1314,7 @@ def _horn_response_impl(
                 rleak = sb.rleak
             elif sb.aleak > 0 and sb.lrc > 0:
                 # rleak = ρ·c·lrc / aleak²  (acoustic resistance of a short tube)
-                rleak = RHO * C * sb.lrc / (sb.aleak**2)
+                rleak = RHO * C * sb.lrc / (sb.aleak ** 2)
             else:
                 # No leak specified → fall back to standard sealed box
                 rleak = 0.0
@@ -1404,10 +1327,7 @@ def _horn_response_impl(
             if fr_tuning <= 0:
                 fr_tuning = getattr(driver, "fs", 0.0)
             Z_ab = rear_chamber_impedance(
-                f,
-                horn.vrc,
-                horn.lrc,
-                fr=horn.fr_rc,
+                f, horn.vrc, horn.lrc, fr=horn.fr_rc,
                 chamber_type=getattr(rc, "chamber_type", "sealed") if rc else "sealed",
                 fr_tuning=fr_tuning,
                 throat_area=horn.throat_area,
@@ -1426,13 +1346,8 @@ def _horn_response_impl(
             Z_rear_load = Z_ab
 
         Z_e, Z_ms, Z_me, Z_mt = _driver_impedance(
-            driver.bl,
-            driver.re,
-            driver.le,
-            driver.mms,
-            driver.cms,
-            driver.rms,
-            driver.sd,
+            driver.bl, driver.re, driver.le,
+            driver.mms, driver.cms, driver.rms, driver.sd,
             f,
             le_freq_dependency=driver.le_freq_dependency,
             le_f_ref=driver.le_f_ref,
@@ -1470,19 +1385,15 @@ def _horn_response_impl(
 
         P_throat = U_throat * Z_throat
 
-        with np.errstate(divide="ignore", invalid="ignore"):
+        with np.errstate(divide='ignore', invalid='ignore'):
             denom = T[0, 0] + T[0, 1] / Zrad
             P_mouth = P_throat / denom if abs(denom) > 1e-12 else 0.0
             U_mouth = P_mouth / Zrad if abs(Zrad) > 1e-12 else 0.0
 
         throat_area = horn.throat_area
         mouth_area = horn.mouth_area
-        particle_velocity_throat_out[idx] = (
-            np.abs(U_throat) / throat_area if throat_area > 0 else 0.0
-        )
-        particle_velocity_mouth_out[idx] = (
-            np.abs(U_mouth) / mouth_area if mouth_area > 0 else 0.0
-        )
+        particle_velocity_throat_out[idx] = np.abs(U_throat) / throat_area if throat_area > 0 else 0.0
+        particle_velocity_mouth_out[idx] = np.abs(U_mouth) / mouth_area if mouth_area > 0 else 0.0
 
         U_port_local = 0.0j
         A_port_local = 1.0
@@ -1523,7 +1434,12 @@ def _horn_response_impl(
                 )
                 if vb.path_length_difference != 0.0:
                     p_port_rad *= np.exp(
-                        -1j * 2 * np.pi * vb.path_length_difference / C * f
+                        -1j
+                        * 2
+                        * np.pi
+                        * vb.path_length_difference
+                        / C
+                        * f
                     )
 
             p_1m = p_direct + p_horn + p_port_rad
@@ -1555,10 +1471,7 @@ def _horn_response_impl(
                         if abs(Z_rad_tl) > 1e-12 and abs(cos_kL_tl) > 1e-12:
                             U_mouth_tl = 2.0 * p_tl_input * cos_kL_tl / Z_rad_tl
                             p_tl_rad = (
-                                1j
-                                * w
-                                * RHO
-                                * U_mouth_tl
+                                1j * w * RHO * U_mouth_tl
                                 / (2.0 * np.pi)
                                 * np.exp(-1j * w / C * 1.0)
                             )
@@ -1622,7 +1535,12 @@ def _horn_response_impl(
                 )
                 if vb.path_length_difference != 0.0:
                     p_port_rad *= np.exp(
-                        -1j * 2 * np.pi * vb.path_length_difference / C * f
+                        -1j
+                        * 2
+                        * np.pi
+                        * vb.path_length_difference
+                        / C
+                        * f
                     )
 
             p_1m = p_horn + p_port_rad  # mouth + port only, no direct
@@ -1651,10 +1569,7 @@ def _horn_response_impl(
                         if abs(Z_rad_tl) > 1e-12 and abs(cos_kL_tl) > 1e-12:
                             U_mouth_tl = 2.0 * p_tl_input * cos_kL_tl / Z_rad_tl
                             p_tl_rad = (
-                                1j
-                                * w
-                                * RHO
-                                * U_mouth_tl
+                                1j * w * RHO * U_mouth_tl
                                 / (2.0 * np.pi)
                                 * np.exp(-1j * w / C * 1.0)
                             )
@@ -1688,7 +1603,9 @@ def _horn_response_impl(
                 and horn.vrc > 0
             ):
                 vb = horn.vented_box
-                Z_vb_val = vented_box_impedance(f, vb.vrc, vb.lrc, vb.fr, ql=vb.ql)
+                Z_vb_val = vented_box_impedance(
+                    f, vb.vrc, vb.lrc, vb.fr, ql=vb.ql
+                )
                 A_port_iter = (2 * np.pi * vb.fr / C) ** 2 * vb.vrc * vb.lrc
                 A_port_iter = max(A_port_iter, 1e-6)
                 for _ in range(5):
@@ -1712,7 +1629,12 @@ def _horn_response_impl(
                 )
                 if vb.path_length_difference != 0.0:
                     p_port_rad *= np.exp(
-                        -1j * 2 * np.pi * vb.path_length_difference / C * f
+                        -1j
+                        * 2
+                        * np.pi
+                        * vb.path_length_difference
+                        / C
+                        * f
                     )
 
             p_1m = p_horn + p_port_rad
@@ -1741,10 +1663,7 @@ def _horn_response_impl(
                         if abs(Z_rad_tl) > 1e-12 and abs(cos_kL_tl) > 1e-12:
                             U_mouth_tl = 2.0 * p_tl_input * cos_kL_tl / Z_rad_tl
                             p_tl_rad = (
-                                1j
-                                * w
-                                * RHO
-                                * U_mouth_tl
+                                1j * w * RHO * U_mouth_tl
                                 / (2.0 * np.pi)
                                 * np.exp(-1j * w / C * 1.0)
                             )
@@ -1752,9 +1671,7 @@ def _horn_response_impl(
                 p_1m = p_horn + p_port_rad + p_tl_rad
             # ── End Finite Transmission Line ──────────────────────────────────
 
-        particle_velocity_port_out[idx] = (
-            np.abs(U_port_local) / A_port_local if A_port_local > 1e-12 else 0.0
-        )
+        particle_velocity_port_out[idx] = np.abs(U_port_local) / A_port_local if A_port_local > 1e-12 else 0.0
 
         total_pressure_out[idx] = p_1m
         spl_val = _pressure_to_spl(np.array([p_1m]))[0]
@@ -1795,7 +1712,6 @@ def _horn_response_impl(
     if direct_pressure_out is not None:
         measured_db = driver.get_spl_response(freqs)
         if measured_db is not None:
-            pressure_total_before_override = spl_out.copy()
             current_db = _pressure_to_spl(direct_pressure_out)
             with np.errstate(divide="ignore", invalid="ignore"):
                 scale = np.power(10.0, (measured_db - current_db) / 20.0)
@@ -1804,24 +1720,11 @@ def _horn_response_impl(
                 total_pressure_out = direct_pressure_out + horn_pressure_out
             else:
                 total_pressure_out = direct_pressure_out
-
-            pressure_total_after_override = _pressure_to_spl(total_pressure_out)
+                
+            new_spl_out = _pressure_to_spl(total_pressure_out)
             if spl_power_based_out is not None:
-                spl_power_based_out += (
-                    pressure_total_after_override - pressure_total_before_override
-                )
-
-            if horn_pressure_out is not None and spl_power_based_out is not None:
-                direct_spl_corrected = _pressure_to_spl(direct_pressure_out)
-                horn_spl_raw = _pressure_to_spl(horn_pressure_out)
-                horn_calibration_delta = (
-                    spl_power_based_out - pressure_total_after_override
-                )
-                horn_spl_calibrated = horn_spl_raw + horn_calibration_delta
-                new_spl_out = _power_sum_spl(direct_spl_corrected, horn_spl_calibrated)
-            else:
-                new_spl_out = pressure_total_after_override
-
+                spl_power_based_out += (new_spl_out - spl_out)
+            
             spl_out = new_spl_out
 
     phase = np.unwrap(np.angle(total_pressure_out))
@@ -1837,18 +1740,8 @@ def _horn_response_impl(
     if len(freqs) >= 11:
         window = 5
         for i in range(window, len(spl_out) - window):
-            local_median = float(
-                np.median(
-                    np.concatenate(
-                        [spl_out[i - window : i], spl_out[i + 1 : i + window + 1]]
-                    )
-                )
-            )
-            if (
-                spl_out[i] - local_median > 10.0
-                and spl_out[i] - spl_out[i - 1] > 3.0
-                and spl_out[i] - spl_out[i + 1] > 3.0
-            ):
+            local_median = float(np.median(np.concatenate([spl_out[i - window:i], spl_out[i + 1:i + window + 1]])))
+            if spl_out[i] - local_median > 10.0 and spl_out[i] - spl_out[i - 1] > 3.0 and spl_out[i] - spl_out[i + 1] > 3.0:
                 all_artifacts.append(float(freqs[i]))
 
     if all_artifacts:
@@ -1856,31 +1749,21 @@ def _horn_response_impl(
 
     spl_notched_out: Optional[np.ndarray] = None
     if notch_filter and notch_frequencies:
-        spl_notched_out = _apply_notch_filter(
-            freqs, spl_out, notch_frequencies, notch_q
-        )
+        spl_notched_out = _apply_notch_filter(freqs, spl_out, notch_frequencies, notch_q)
 
     _DEFAULT_OFF_AXIS_ANGLES = np.array([0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0])
-    _off_axis_angles = (
-        np.asarray(off_axis_angles)
-        if off_axis_angles is not None
-        else _DEFAULT_OFF_AXIS_ANGLES
-    )
+    _off_axis_angles = np.asarray(off_axis_angles) if off_axis_angles is not None else _DEFAULT_OFF_AXIS_ANGLES
     n_angles = len(_off_axis_angles)
 
     fdd_di_out: Optional[np.ndarray] = None
     direction_index_out: Optional[np.ndarray] = None
 
     if fdd_mode:
-        fdd_di_out = _fdd_directivity_index(
-            freqs, mouth_area, f_c=fdd_fc, D_max=fdd_dmax
-        )
+        fdd_di_out = _fdd_directivity_index(freqs, mouth_area, f_c=fdd_fc, D_max=fdd_dmax)
         off_axis_spl_out = _fdd_off_axis_spl(
             freqs, mouth_area, _off_axis_angles, f_c=fdd_fc, D_max=fdd_dmax
         )
-        radiation_angle = _fdd_radiation_angle(
-            freqs, mouth_area, off_axis_spl_out, _off_axis_angles, f_c=fdd_fc
-        )
+        radiation_angle = _fdd_radiation_angle(freqs, mouth_area, off_axis_spl_out, _off_axis_angles, f_c=fdd_fc)
         a_mouth_piston = np.sqrt(mouth_area / np.pi)
         k_arr = 2.0 * np.pi * freqs / C
         ka_arr = k_arr * a_mouth_piston
@@ -1893,9 +1776,7 @@ def _horn_response_impl(
             j1_vals = jv(1, x_safe)
             sinc_unsq = 2.0 * j1_vals / (x_safe + 1e-12)
             direction_factor = np.where(ka_arr < 0.05, 1.0, sinc_unsq)
-            direction_index_out[:, j] = 10.0 * np.log10(
-                np.maximum(direction_factor, 1e-12)
-            )
+            direction_index_out[:, j] = 10.0 * np.log10(np.maximum(direction_factor, 1e-12))
     else:
         off_axis_spl_out = np.zeros((len(freqs), n_angles))
         a_mouth_piston = np.sqrt(mouth_area / np.pi)
@@ -1921,9 +1802,7 @@ def _horn_response_impl(
             j1_vals = jv(1, x_safe)
             sinc_unsq = 2.0 * j1_vals / (x_safe + 1e-12)
             direction_factor = np.where(ka_arr < 0.05, 1.0, sinc_unsq)
-            direction_index_out[:, j] = 10.0 * np.log10(
-                np.maximum(direction_factor, 1e-12)
-            )
+            direction_index_out[:, j] = 10.0 * np.log10(np.maximum(direction_factor, 1e-12))
 
         radiation_angle: Optional[float] = None
         if n_angles >= 2:
@@ -1952,9 +1831,7 @@ def _horn_response_impl(
                     radiation_angle = float(np.mean(valid))
 
     is_finite_horn_charged = (
-        horn.vented_box is not None
-        and horn.vented_box.finite_horn_charged
-        and horn.vrc > 0
+        horn.vented_box is not None and horn.vented_box.finite_horn_charged and horn.vrc > 0
     )
 
     second_tone_distortion = (
@@ -1972,7 +1849,7 @@ def _horn_response_impl(
     # Futtrup audible group delay limit (Hornresp page 113):
     # GDlimit = 1000 × 1160.6 / (5643 × f^0.81511 − f)  [ms]
     # Below ~50 Hz the denominator approaches zero; clamp to a safe upper bound.
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(divide='ignore', invalid='ignore'):
         denominator = 5643.0 * freqs**0.81511 - freqs
         futtrup_gdlimit = np.where(
             denominator > 1.0,

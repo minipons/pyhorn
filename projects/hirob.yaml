@@ -50,6 +50,13 @@ ap1: 0.0132       # m² — ~1× driver Sd (Fostex FE166NV2 Sd=132 cm²)
 # ang=0.5π sr (half-space radiation — front baffle on infinite wall)
 ang: 1.5708       # π/2 steradians
 
+# Mouth radiation boundary condition.
+# "anechoic" = plane-wave radiation (Z_rad = rho*c / S_mouth, purely resistive).
+#   Matches Hornresp's "ignore room resonance" option.  Recommended for comparing
+#   pyhorn dB/W/m SPL against Hornresp SPL data (which uses anechoic mouth).
+# "levine" = Levine/Inglis circular piston in infinite baffle (reflecting baffle).
+mouth_radiation: anechoic
+
 # ── Enclosure ──────────────────────────────────────────────────────────
 width: 0.224       # m — internal horn width (224 mm = 7×32 mm MDF layers)
 enclosure: [0.288, 0.385]   # W×D m — external cabinet

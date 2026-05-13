@@ -190,8 +190,9 @@ def _circular_piston_radiation_impedance(
     # =========================================================================
 
     if ka < 0.1:
-        # Levine/Inglis small-ka limit: R_rad → Zc·(ka)⁴/4  [O(ka⁴)]
-        R_rad = Zc * (ka ** 4) / 4.0
+        # Levine/Inglis small-ka limit (piston in infinite baffle):
+        # R_rad → Zc · (ka)²/2  [O(ka²)]  — not ka⁴ (that is unbaffled-pipe).
+        R_rad = Zc * (ka ** 2) / 2.0
         X_rad = Zc * 8.0 * ka / (3.0 * np.pi)
     else:
         # Levine/Inglis: R_rad = Zc·[1 − (J₁(2ka)/(ka))²]
@@ -214,17 +215,36 @@ def radiation_impedance(
     _a: float | None = None,
     mouth_width: float | None = None,
     mouth_height: float | None = None,
+    mouth_radiation: str = "levine",
 ) -> complex:
     """
-    Radiation impedance of a circular or rectangular piston in a baffle.
+    Radiation impedance of a circular or rectangular piston in a baffle,
+    or a plane-wave anechoic termination.
 
     Uses Levine/Inglis (full Bessel/Struve) for ka ≥ 0.1, Rayleigh
     approximation for ka < 0.1.  Rectangular piston uses the Morse & Ingard
     k²·S² low-ka formula.
 
     ang = π (half-space, e.g. front baffle) or 2π (full-space).
+
+    mouth_radiation: str, default "levine"
+        "levine" — Levine/Inglis circular piston in infinite baffle.
+        "anechoic" — plane-wave radiation (Z_rad = rho*c / S_mouth, purely resistive).
+        Use "anechoic" when comparing against Hornresp with "ignore room resonance".
     """
     k = 2 * np.pi * freq / C
+
+    if mouth_radiation == "anechoic":
+        # Anechoic termination: pure plane-wave radiation resistance.
+        # Z_rad = ρ * c / S  (real only, no mass reactance).
+        # No angular (2π/ang) factor — this is the intrinsic characteristic
+        # impedance of the pipe/horn at the mouth plane, not a directional
+        # coupling factor.  Matches Hornresp "ignore room resonance" which
+        # uses a purely resistive mouth termination.
+        if mouth_area <= 0.0:
+            return 0.0j
+        R_anechoic = Z0 / mouth_area
+        return R_anechoic + 0.0j
     if mouth_area <= 0.0:
         return 0.0j
     Zc = _Zc if _Zc is not None else Z0 / mouth_area
