@@ -19,9 +19,7 @@ from pyhorn_cli.cli.cli import (
     auto_segment,
     diagnose_spl,
     optimize,
-    fold_optimized,
     driver_front_volume,
-    wavefront_edit,
 )
 
 __all__ = [
@@ -39,7 +37,5 @@ __all__ = [
     "auto_segment",
     "diagnose_spl",
     "optimize",
-    "fold_optimized",
     "driver_front_volume",
-    "wavefront_edit",
 ]

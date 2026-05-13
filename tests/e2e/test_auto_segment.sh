@@ -8,9 +8,9 @@ cd "$WORKDIR"
 OUT="/tmp/test_auto_segment_out.yaml"
 rm -f "$OUT"
 
-# Use bk16.json from source/
+# Use bk16.json from examples/geometry/
 pyhorn auto-segment \
-  -i source/bk16.json \
+  -i examples/geometry/bk16.json \
   -o "$OUT" \
   --n-segments 16
 

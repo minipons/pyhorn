@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Compare Hornresp CSV (hornresp_spl_hirob.csv) against pyhorn for the HiroB project.
+Compare the canonical HiroB Hornresp CSV reference against pyhorn.
 Run from repo root: python tests/benchmarks/hornresp_gdb1/compare_hirob.py
 
 This comparison intentionally disables pyhorn's productized driver layers

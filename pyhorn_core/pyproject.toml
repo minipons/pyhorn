@@ -18,7 +18,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["solver*", "config*", "output*", "registry", "integrations*"]
+include = ["solver*", "config*", "output*", "integrations*"]
 
 [tool.setuptools.package-dir]
 "" = "."

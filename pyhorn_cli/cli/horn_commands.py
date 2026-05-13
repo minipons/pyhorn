@@ -8,9 +8,14 @@ import numpy as np
 import typer
 import yaml
 
-from pyhorn_core.config.parser import parse_driver_specs, parse_horn_geometry, parse_horn_project
+from pyhorn_core.config.parser import (
+    parse_driver_specs,
+    parse_horn_geometry,
+    parse_horn_project,
+)
 from pyhorn_core.solver.models import horn_response, horn_response_tapped, C
-from pyhorn_core.config.models import TappedHornGeometry, Section, RearChamber
+from pyhorn_core.config.chamber_models import RearChamber
+from pyhorn_core.config.horn_models import Section, TappedHornGeometry
 from pyhorn_core.solver.adapter import compute_throat_adapter, throat_adapter_profile
 from pyhorn_core.output.plotter import plot_throat_adapter_profile
 
@@ -137,30 +142,55 @@ def tapped_horn(
     typer.echo(f"  Front path length: {th_geom.front_path_length():.3f} m")
     typer.echo(f"  Rear load type:     {th_geom.rear_load_type}")
     if th_geom.rear_chamber:
-        typer.echo(f"  Rear chamber:        {th_geom.rear_chamber.vrc*1000:.1f} L, Lrc={th_geom.rear_chamber.lrc*100:.1f} cm")
+        typer.echo(
+            f"  Rear chamber:        {th_geom.rear_chamber.vrc*1000:.1f} L, Lrc={th_geom.rear_chamber.lrc*100:.1f} cm"
+        )
     max_spl_idx = int(np.argmax(result.spl))
-    typer.echo(f"  Max SPL:            {result.spl[max_spl_idx]:.1f} dB @ {freqs[max_spl_idx]:.0f} Hz")
-    typer.echo(f"  SPL at 1 kHz:       {float(np.interp(1000, freqs, result.spl)):.1f} dB")
+    typer.echo(
+        f"  Max SPL:            {result.spl[max_spl_idx]:.1f} dB @ {freqs[max_spl_idx]:.0f} Hz"
+    )
+    typer.echo(
+        f"  SPL at 1 kHz:       {float(np.interp(1000, freqs, result.spl)):.1f} dB"
+    )
 
     # CSV export
     csv_path = output_dir / "tapped_horn_response.csv"
     if export_csv:
         import csv
+
         with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
-            eff = result.efficiency_pct if result.efficiency_pct is not None else np.zeros_like(result.spl)
-            gd = result.group_delay if result.group_delay is not None else np.zeros_like(result.spl)
-            writer.writerow(["frequency_hz", "spl_db", "impedance_ohm", "excursion_mm",
-                             "efficiency_pct", "group_delay_ms"])
+            eff = (
+                result.efficiency_pct
+                if result.efficiency_pct is not None
+                else np.zeros_like(result.spl)
+            )
+            gd = (
+                result.group_delay
+                if result.group_delay is not None
+                else np.zeros_like(result.spl)
+            )
+            writer.writerow(
+                [
+                    "frequency_hz",
+                    "spl_db",
+                    "impedance_ohm",
+                    "excursion_mm",
+                    "efficiency_pct",
+                    "group_delay_ms",
+                ]
+            )
             for i in range(len(freqs)):
-                writer.writerow([
-                    round(freqs[i], 2),
-                    round(result.spl[i], 2),
-                    round(np.abs(result.impedance[i]), 2),
-                    round(result.excursion[i] * 1000, 4),  # mm
-                    round(eff[i], 3),
-                    round(gd[i] * 1000, 3),
-                ])
+                writer.writerow(
+                    [
+                        round(freqs[i], 2),
+                        round(result.spl[i], 2),
+                        round(np.abs(result.impedance[i]), 2),
+                        round(result.excursion[i] * 1000, 4),  # mm
+                        round(eff[i], 3),
+                        round(gd[i] * 1000, 3),
+                    ]
+                )
         typer.echo(f"  CSV: {csv_path}")
 
     # Plot
@@ -169,8 +199,10 @@ def tapped_horn(
         typer.echo(f"  Plot: {plot_path}")
         try:
             import matplotlib
+
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
+
             fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
             axes[0].semilogx(freqs, result.spl, color="tab:blue")
             axes[0].set_ylabel("SPL (dB)")
@@ -184,17 +216,19 @@ def tapped_horn(
             plt.savefig(plot_path, dpi=150)
             plt.close()
         except Exception as e:
-            typer.secho(f"  Warning: could not generate plot: {e}", fg=typer.colors.YELLOW)
+            typer.secho(
+                f"  Warning: could not generate plot: {e}", fg=typer.colors.YELLOW
+            )
 
     typer.secho("Done.", fg=typer.colors.GREEN)
 
 
 def throat_adapter(
-    d1: float = typer.Option(
-        ..., "--d1", help="Input (throat chamber) diameter in mm"
-    ),
+    d1: float = typer.Option(..., "--d1", help="Input (throat chamber) diameter in mm"),
     d2: float = typer.Option(..., "--d2", help="Output (horn throat) diameter in mm"),
-    a1: float = typer.Option(30.0, "--a1", help="Input side flare half-angle in degrees"),
+    a1: float = typer.Option(
+        30.0, "--a1", help="Input side flare half-angle in degrees"
+    ),
     a2: float = typer.Option(
         30.0, "--a2", help="Output side flare half-angle in degrees"
     ),
@@ -288,7 +322,9 @@ def throat_adapter(
     }
     yaml_text = yaml.safe_dump(yaml_data, sort_keys=False)
 
-    typer.echo("\n# ── Throat Adapter YAML snippet ──────────────────────────────────────")
+    typer.echo(
+        "\n# ── Throat Adapter YAML snippet ──────────────────────────────────────"
+    )
     typer.echo("# Paste this block into your project YAML under the top level:")
     typer.echo(yaml_text.rstrip())
     typer.echo("# ────────────────────────────────────────────────────────────────────")
@@ -300,8 +336,12 @@ def throat_adapter(
         A0 = (atc / 100.0) * 0.0001  # cm² → m²
 
     typer.echo(f"\nAdapter summary ({ptype}):")
-    typer.echo(f"  D1 (throat chamber side):  {d1_display:.1f} mm  ({A0 * 10000.0:.2f} cm²)")
-    typer.echo(f"  D2 (horn throat side):      {d2_display:.1f} mm  ({ap1_cm2:.2f} cm²)")
+    typer.echo(
+        f"  D1 (throat chamber side):  {d1_display:.1f} mm  ({A0 * 10000.0:.2f} cm²)"
+    )
+    typer.echo(
+        f"  D2 (horn throat side):      {d2_display:.1f} mm  ({ap1_cm2:.2f} cm²)"
+    )
     typer.echo(f"  Flare angles:              A1={a1}°, A2={a2}°")
     typer.echo(f"  Minimum length (Lpt):      {lpt_cm:.2f} cm  ({adapter.lpt:.4f} m)")
     if length is not None:
@@ -315,7 +355,9 @@ def throat_adapter(
     # ── Profile plot ──────────────────────────────────────────────────────────
     if plot or output_plot is not None:
         profile = throat_adapter_profile(adapter, A0=A0, n_points=101)
-        plot_path = output_plot or Path(f"throat_adapter_{ptype}_{int(d1)}to{int(d2)}mm.png")
+        plot_path = output_plot or Path(
+            f"throat_adapter_{ptype}_{int(d1)}to{int(d2)}mm.png"
+        )
         typer.echo(f"\nGenerating profile plot at {plot_path} ...")
         plot_throat_adapter_profile(
             profile,
@@ -482,7 +524,9 @@ def auto_segment(
                 )
         else:
             exported_count = len(
-                exported.get("rectangular_segments", exported.get("conical_segments", []))
+                exported.get(
+                    "rectangular_segments", exported.get("conical_segments", [])
+                )
             )
             typer.secho(
                 f"Successfully generated {exported_count} segments!",
@@ -495,7 +539,9 @@ def auto_segment(
             D1_m = throat_adapter_d1 / 1000.0
             D2_m = throat_adapter_d2 / 1000.0
             length_m = (
-                throat_adapter_length / 1000.0 if throat_adapter_length is not None else None
+                throat_adapter_length / 1000.0
+                if throat_adapter_length is not None
+                else None
             )
             adapter = compute_throat_adapter(
                 D1=D1_m,
@@ -548,7 +594,9 @@ def diagnose_spl(
     ),
     fmin: float = typer.Option(20.0, help="Minimum frequency (Hz)"),
     fmax: float = typer.Option(500.0, help="Maximum frequency (Hz)"),
-    n_points: int = typer.Option(5000, help="Number of frequency points (fine resolution)"),
+    n_points: int = typer.Option(
+        5000, help="Number of frequency points (fine resolution)"
+    ),
     band_start: float = typer.Option(
         200.0,
         "--band-start",
@@ -609,7 +657,7 @@ def diagnose_spl(
 
     Example
     -------
-        pyhorn diagnose-spl -d drivers/FE166NV2.yaml -h source/hiro.yaml
+        pyhorn diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hiro.yaml
         pyhorn diagnose-spl -d drivers/FE166NV2.yaml -p projects/hiro.yaml --standing-wave-freqs
     """
     # ── Parse configurations ─────────────────────────────────────────────────
@@ -662,20 +710,35 @@ def diagnose_spl(
     typer.echo(f"  SPL Diagnostic Report — {horn_name}")
     typer.echo(f"{'='*60}")
     typer.echo(f"\nBand: {band_start:.0f}–{band_end:.0f} Hz  |  {len(f_band)} points")
-    typer.echo(f"SPL range: {s_band.min():.1f}–{s_band.max():.1f} dB  |  mean {s_band.mean():.1f} dB")
+    typer.echo(
+        f"SPL range: {s_band.min():.1f}–{s_band.max():.1f} dB  |  mean {s_band.mean():.1f} dB"
+    )
     typer.echo(f"\nSmoothness Metrics:")
-    typer.echo(f"  Overall SPL std-dev:   {actual_std:.2f} dB  (natural variation in this band)")
+    typer.echo(
+        f"  Overall SPL std-dev:   {actual_std:.2f} dB  (natural variation in this band)"
+    )
     typer.echo(f"  Max |dSPL| per bin:    {max_dspl:.3f} dB  (< 0.5 dB = smooth)")
     typer.echo(f"  Local Variation Index: {lvi:.1f}%  (0% = no artifacts)")
     typer.echo(f"  Quality: ", nl=False)
     if lvi == 0.0 and max_dspl < 0.5:
-        typer.echo(typer.style("SMOOTH  (no numerical artifacts detected)", fg=typer.colors.GREEN))
+        typer.echo(
+            typer.style(
+                "SMOOTH  (no numerical artifacts detected)", fg=typer.colors.GREEN
+            )
+        )
     elif lvi < 1.0 and max_dspl < 2.0:
         typer.echo(typer.style("ACCEPTABLE", fg=typer.colors.YELLOW))
     elif lvi < 5.0:
-        typer.echo(typer.style("MODERATELY RAGGED  (some artifacts possible)", fg=typer.colors.YELLOW))
+        typer.echo(
+            typer.style(
+                "MODERATELY RAGGED  (some artifacts possible)", fg=typer.colors.YELLOW
+            )
+        )
     else:
-        typer.secho(f"RAGGED  ({lvi:.1f}% bins exceed 3 dB/bin — possible artifacts)", fg=typer.colors.RED)
+        typer.secho(
+            f"RAGGED  ({lvi:.1f}% bins exceed 3 dB/bin — possible artifacts)",
+            fg=typer.colors.RED,
+        )
 
     # ── 2. Standing wave analysis ──────────────────────────────────────────────
     C_SOUND = 343.0  # m/s
@@ -728,7 +791,9 @@ def diagnose_spl(
             typer.echo(f"  f={pf:.1f} Hz, SPL={ps:.1f} dB → {cause}: {label}")
 
     # ── 3. Artifact detection ────────────────────────────────────────────────
-    typer.echo(f"\nArtifact Detection (peaks >{artifact_threshold} dB above neighbours):")
+    typer.echo(
+        f"\nArtifact Detection (peaks >{artifact_threshold} dB above neighbours):"
+    )
     artifacts_found = []
     for i in range(1, len(s_band) - 1):
         if (
@@ -744,7 +809,9 @@ def diagnose_spl(
                 fg=typer.colors.YELLOW,
             )
     else:
-        typer.echo(f"  None detected (no isolated peaks >{artifact_threshold:.0f} dB above neighbours)")
+        typer.echo(
+            f"  None detected (no isolated peaks >{artifact_threshold:.0f} dB above neighbours)"
+        )
 
     # ── 4. Raggedness summary & physical interpretation ─────────────────────
     typer.echo(f"\nInterpretation:")
@@ -761,9 +828,7 @@ def diagnose_spl(
         typer.echo(
             f"\n  Savitzky-Golay smoothing in medial_axis.py removes CENTERLINE JITTER"
         )
-        typer.echo(
-            f"  artifacts from fragmented Onshape edges, but does NOT eliminate"
-        )
+        typer.echo(f"  artifacts from fragmented Onshape edges, but does NOT eliminate")
         typer.echo(
             f"  physical standing-wave nulls (those require path-length changes)."
         )
@@ -805,9 +870,15 @@ def diagnose_spl(
             # also derive the fundamental empirically from detected notches below.
             l_eff = (vrc_val + vtc_val) / atc_val
             f_fundamental = C / (4.0 * l_eff)
-            typer.echo(f"\n  Rear+throat chamber resonance fundamental: {f_fundamental:.1f} Hz")
-            typer.echo(f"    Vrc={vrc_val*1e6:.2f} mL, Vtc={vtc_val*1e6:.2f} mL, Atc={atc_val*1e4:.1f} cm²")
-            typer.echo(f"    L_eff = {l_eff*100:.1f} cm  (note: may under-predict by ~15% for Hiro-style chambers)")
+            typer.echo(
+                f"\n  Rear+throat chamber resonance fundamental: {f_fundamental:.1f} Hz"
+            )
+            typer.echo(
+                f"    Vrc={vrc_val*1e6:.2f} mL, Vtc={vtc_val*1e6:.2f} mL, Atc={atc_val*1e4:.1f} cm²"
+            )
+            typer.echo(
+                f"    L_eff = {l_eff*100:.1f} cm  (note: may under-predict by ~15% for Hiro-style chambers)"
+            )
         else:
             path_len = float(
                 sum(seg[0] for seg in (result.segments or []))
@@ -846,7 +917,9 @@ def diagnose_spl(
                 f_notch = freqs_hf[i]
                 nearest = min(expected_sw, key=lambda sw: abs(sw[1] - f_notch))
                 delta = f_notch - nearest[1]
-                detected_notches.append((f_notch, spl_hf[i], nearest[0], nearest[1], delta))
+                detected_notches.append(
+                    (f_notch, spl_hf[i], nearest[0], nearest[1], delta)
+                )
 
         if detected_notches:
             # Derive empirical fundamental: for each pair of notches, compute f_i / round(f_i/f_1)
@@ -860,14 +933,20 @@ def diagnose_spl(
                         ratio = f_j / f_i
                         if ratio > 1.0:
                             for n in range(2, 40):
-                                if abs(ratio - n) < 0.15:   # within 15% of integer
+                                if abs(ratio - n) < 0.15:  # within 15% of integer
                                     candidates.append(f_j / n)
             if candidates:
                 f_empirical = sorted(candidates)[len(candidates) // 2]
-                typer.echo(f"\n  Empirical fundamental: {f_empirical:.1f} Hz  (from notch harmonic analysis)")
+                typer.echo(
+                    f"\n  Empirical fundamental: {f_empirical:.1f} Hz  (from notch harmonic analysis)"
+                )
 
-            typer.echo(f"\n  Detected {len(detected_notches)} deep notches (>3 dB below neighbours):")
-            typer.echo(f"  {'  f_notch (Hz)':>14}  {'SPL':>7}  {'nearest n':>10}  {'expected Hz':>12}  {'Δ Hz':>7}  {'cause'}")
+            typer.echo(
+                f"\n  Detected {len(detected_notches)} deep notches (>3 dB below neighbours):"
+            )
+            typer.echo(
+                f"  {'  f_notch (Hz)':>14}  {'SPL':>7}  {'nearest n':>10}  {'expected Hz':>12}  {'Δ Hz':>7}  {'cause'}"
+            )
             suggested_notch_freqs = []
             for f_n, spl_n, n_sw, f_sw, delta in detected_notches:
                 # Label with empirical fundamental if available
@@ -875,10 +954,14 @@ def diagnose_spl(
                     n_label = round(f_n / f_empirical)
                     f_expected_label = n_label * f_empirical
                     delta_label = f_n - f_expected_label
-                    cause = typer.style(f"STANDING WAVE (n={n_label})", fg=typer.colors.YELLOW)
+                    cause = typer.style(
+                        f"STANDING WAVE (n={n_label})", fg=typer.colors.YELLOW
+                    )
                     # Use empirical-harmonic as suggested freq
                     suggested_notch_freqs.append(round(f_expected_label))
-                elif abs(delta) < 150.0:   # relaxed to ±150 Hz (~5% of 3 kHz) to capture Hiro SW patterns
+                elif (
+                    abs(delta) < 150.0
+                ):  # relaxed to ±150 Hz (~5% of 3 kHz) to capture Hiro SW patterns
                     cause = typer.style("STANDING WAVE", fg=typer.colors.YELLOW)
                     suggested_notch_freqs.append(round(f_sw))
                 else:
@@ -887,7 +970,9 @@ def diagnose_spl(
                     f"  {f_n:>14.1f}  {spl_n:>7.1f}  {n_sw:>10}  {f_sw:>12.1f}  {delta:>+7.1f}  {cause}"
                 )
             if suggested_notch_freqs:
-                suggested_str = ",".join(str(f) for f in sorted(set(suggested_notch_freqs)))
+                suggested_str = ",".join(
+                    str(f) for f in sorted(set(suggested_notch_freqs))
+                )
                 typer.echo(f"\n  Suggested notch-filter frequencies:")
                 typer.secho(
                     f"    pyhorn calculate -d <driver> -h <horn> --notch-filter --notch-frequencies {suggested_str}",
@@ -904,14 +989,25 @@ def diagnose_spl(
 
         with open(output_csv, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["frequency_hz", "spl_db", "is_peak", "is_artifact", "standing_wave_n", "nearest_sw_hz"])
+            writer.writerow(
+                [
+                    "frequency_hz",
+                    "spl_db",
+                    "is_peak",
+                    "is_artifact",
+                    "standing_wave_n",
+                    "nearest_sw_hz",
+                ]
+            )
             for i in range(len(f_band)):
                 f_i = f_band[i]
                 s_i = s_band[i]
                 is_peak = any(abs(f_i - pf) < 0.5 for pf, _ in peaks)
                 is_artifact = any(abs(f_i - af) < 0.5 for af, _ in artifacts_found)
                 nearest_sw = min(expected_sw, key=lambda sw: abs(sw[1] - f_i))
-                writer.writerow([f_i, s_i, is_peak, is_artifact, nearest_sw[0], nearest_sw[1]])
+                writer.writerow(
+                    [f_i, s_i, is_peak, is_artifact, nearest_sw[0], nearest_sw[1]]
+                )
         typer.echo(f"Diagnostic CSV saved to {output_csv}")
 
 
@@ -920,8 +1016,12 @@ def driver_front_volume(
     d2: float = typer.Option(..., "--d2", help="Cone / piston diameter (Sd) in mm"),
     d3: float = typer.Option(..., "--d3", help="Dust cover diameter in mm"),
     h1: float = typer.Option(..., "--h1", help="Mounting ring thickness in mm"),
-    h2: float = typer.Option(..., "--h2", help="Cone edge to dust cover distance in mm"),
-    h3: float = typer.Option(..., "--h3", help="Cone to dust cover centre height in mm"),
+    h2: float = typer.Option(
+        ..., "--h2", help="Cone edge to dust cover distance in mm"
+    ),
+    h3: float = typer.Option(
+        ..., "--h3", help="Cone to dust cover centre height in mm"
+    ),
 ):
     """Compute the effective acoustic volume in front of the driver cone.
 
@@ -955,7 +1055,9 @@ def driver_front_volume(
     v_cone = (math.pi / 12.0) * (D2**2) * H3
     v_total = v_shell + v_cone
 
-    typer.echo("\n# ── Driver Front Volume ─────────────────────────────────────────────")
+    typer.echo(
+        "\n# ── Driver Front Volume ─────────────────────────────────────────────"
+    )
     typer.echo(f"# Mounting hole diameter D1: {d1:.1f} mm")
     typer.echo(f"# Cone / piston diameter D2: {d2:.1f} mm")
     typer.echo(f"# Dust cover diameter D3:   {d3:.1f} mm")
@@ -968,8 +1070,10 @@ def driver_front_volume(
     typer.echo(f"Cone-tip frustum:  π/12 × {d2:.1f}² mm² × {h3:.1f} mm")
     typer.echo(f"  = {v_cone * 1e6:.2f} cm³")
     typer.echo(f"───────────────────────────────────────────────────────────────────")
-    typer.secho(f"Effective front volume: {v_total * 1e6:.2f} cm³  ({v_total * 1e9:.1f} mm³)  [{v_total:.3e} m³]", fg=typer.colors.GREEN)
+    typer.secho(
+        f"Effective front volume: {v_total * 1e6:.2f} cm³  ({v_total * 1e9:.1f} mm³)  [{v_total:.3e} m³]",
+        fg=typer.colors.GREEN,
+    )
     typer.echo("\n⚠️  Add this volume to Vtc in your project YAML manually.")
     typer.echo("   The solver does NOT auto-add this value.")
     typer.secho("\nDone.", fg=typer.colors.GREEN)
-

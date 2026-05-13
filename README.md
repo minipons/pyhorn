@@ -8,14 +8,14 @@ Predicts SPL, impedance, group delay, and diaphragm excursion for back-loaded ho
 
 ```bash
 pip install -e .
-pyhorn calculate -d drivers/FE166NV2.yaml -h projects/bkhiro.yaml --fmin 20 --fmax 2000
+pyhorn calculate -d drivers/FE166NV2.yaml -h projects/hirob.yaml --fmin 20 --fmax 2000
 ```
 
 ## CLI Commands
 
 ```bash
 # Simulate a horn
-pyhorn calculate -d drivers/FE166NV2.yaml -h projects/bkhiro.yaml
+pyhorn calculate -d drivers/FE166NV2.yaml -h projects/hirob.yaml
 
 # Compare multiple horns on one plot
 pyhorn compare horns/*.yaml -d drivers/FE166NV2.yaml
@@ -43,7 +43,7 @@ Simulation results (SPL, impedance, group delay, excursion) are written to `outp
 - `pyhorn_cli/` — Typer CLI interface
 - `drivers/` — driver YAML files (T-S parameters)
 - `projects/` — horn project YAML files
-- `source/` — horn geometry source files
+- `examples/geometry/` — sample raw geometry YAML/JSON fixtures
 - `tests/` — benchmarks and test suite
 
 Agent-facing repo maps live in `AGENTS.md` and `docs/architecture/`. Use those before widening changes across solver, benchmark, or config surfaces.

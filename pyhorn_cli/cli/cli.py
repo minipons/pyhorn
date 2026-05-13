@@ -3,10 +3,21 @@
 import typer
 
 from .core_commands import calculate, compare, derive_ts
-from .design_wizard import resize_wizard, hornresp, chamber_wizard, segment_wizard, synthesis_wizard
-from .horn_commands import tapped_horn, throat_adapter, auto_segment, diagnose_spl, driver_front_volume
-from .interactive_commands import wavefront_edit
-from .optimize_commands import optimize, fold_optimized
+from .design_wizard import (
+    resize_wizard,
+    hornresp,
+    chamber_wizard,
+    segment_wizard,
+    synthesis_wizard,
+)
+from .horn_commands import (
+    tapped_horn,
+    throat_adapter,
+    auto_segment,
+    diagnose_spl,
+    driver_front_volume,
+)
+from .optimize_commands import optimize
 
 app = typer.Typer(help="pyhornresp: Headless Acoustic Simulation CLI")
 
@@ -26,8 +37,6 @@ def _register_commands():
     app.command(name="diagnose-spl")(diagnose_spl)
     app.command(name="driver-front-volume")(driver_front_volume)
     app.command(name="optimize")(optimize)
-    app.command(name="fold-optimized")(fold_optimized)
-    app.command(name="wavefront-edit")(wavefront_edit)
 
 
 _register_commands()

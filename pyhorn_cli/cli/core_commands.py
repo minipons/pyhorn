@@ -220,44 +220,6 @@ def calculate(
         "Horn responses whose group delay exceeds this limit are typically inaudible "
         "due to precedence masking.",
     ),
-    wavefront: bool = typer.Option(
-        False,
-        "--wavefront",
-        help="Run 2-D wavefront simulator and generate a pressure colormap. "
-        "Implies --plot.",
-    ),
-    wavefront_geometry: Optional[Path] = typer.Option(
-        None,
-        "--wavefront-geometry",
-        help="Path to geometry YAML for the wavefront simulation. "
-        "Defaults to --project or --horn geometry.",
-    ),
-    wavefront_freq: float = typer.Option(
-        500.0,
-        "--wavefront-freq",
-        help="Drive frequency for the wavefront simulation (Hz).",
-    ),
-    animate: bool = typer.Option(
-        False,
-        "--animate",
-        help="Generate an animated GIF of wave propagation. "
-        "Requires --wavefront.",
-    ),
-    wavefront_animate: bool = typer.Option(
-        False,
-        "--wavefront-animate",
-        help="Convenience flag: equivalent to --wavefront --animate.",
-    ),
-    wavefront_nx: int = typer.Option(
-        150,
-        "--wavefront-nx",
-        help="Grid resolution in x for the wavefront simulation.",
-    ),
-    wavefront_ny: int = typer.Option(
-        150,
-        "--wavefront-ny",
-        help="Grid resolution in y for the wavefront simulation.",
-    ),
     spectrogram: bool = typer.Option(
         False,
         "--spectrogram",
@@ -356,7 +318,11 @@ def calculate(
             try:
                 with open(filter_yaml) as fh:
                     filter_data = yaml.safe_load(fh)
-                band_list = filter_data.get("filter_bands", []) if isinstance(filter_data, dict) else []
+                band_list = (
+                    filter_data.get("filter_bands", [])
+                    if isinstance(filter_data, dict)
+                    else []
+                )
                 bands: list[FilterBand] = [
                     FilterBand(
                         type=b.get("type", "peakingEQ"),
@@ -373,6 +339,7 @@ def calculate(
                 raise typer.Exit(code=1)
         elif filter_preset is not None:
             from pyhorn_ui.server import _DEFAULT_BANDS
+
             preset_bands = _DEFAULT_BANDS.get(filter_preset)
             if preset_bands is None:
                 typer.secho(
@@ -395,9 +362,9 @@ def calculate(
         else:
             # Default: Le Cleach HP preset
             from pyhorn_ui.server import _DEFAULT_BANDS
+
             preset_bands = _DEFAULT_BANDS.get(
-                "Le Cleach HP",
-                _DEFAULT_BANDS.get("Le Cléac'h HP", [])
+                "Le Cleach HP", _DEFAULT_BANDS.get("Le Cléac'h HP", [])
             )
             bands = [
                 FilterBand(
@@ -449,8 +416,8 @@ def calculate(
 
         if project_config is not None and horn_config is not None:
             raise ValueError("Use only one of --project or --horn, not both.")
-        if project_config is None and horn_config is None and wavefront_geometry is None:
-            raise ValueError("Specify either --project, --horn, or --wavefront-geometry.")
+        if project_config is None and horn_config is None:
+            raise ValueError("Specify either --project or --horn.")
 
         if project_config is not None:
             project, horn = parse_horn_project(project_config)
@@ -466,21 +433,21 @@ def calculate(
             horn_name = horn_config.stem
             typer.echo(f"Loaded driver specs from {driver_config}")
             typer.echo(f"Loaded horn geometry from {horn_config}")
-        else:
-            # Wavefront-only mode: --wavefront-geometry provided without --project or --horn
-            horn = None
-            project = None
-            horn_name = wavefront_geometry.stem
-            typer.echo(f"Wavefront-only mode: loading geometry from {wavefront_geometry}.")
 
     except Exception as e:
         typer.secho(f"Error loading configurations: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     # ── Override path_length_difference (CLI flag takes precedence over YAML) ──
-    if path_length_diff is not None and horn is not None and horn.vented_box is not None:
+    if (
+        path_length_diff is not None
+        and horn is not None
+        and horn.vented_box is not None
+    ):
         horn.vented_box.path_length_difference = path_length_diff
-        typer.echo(f"  path_length_difference set to {path_length_diff:.3f} m (CLI override)")
+        typer.echo(
+            f"  path_length_difference set to {path_length_diff:.3f} m (CLI override)"
+        )
 
     # 2. Prepare Frequency Array
     freqs = np.logspace(np.log10(fmin), np.log10(fmax), n_points)
@@ -503,7 +470,9 @@ def calculate(
         if notch_filter:
             if notch_frequencies:
                 try:
-                    _notch_freqs = [float(f.strip()) for f in notch_frequencies.split(",")]
+                    _notch_freqs = [
+                        float(f.strip()) for f in notch_frequencies.split(",")
+                    ]
                 except ValueError:
                     typer.secho(
                         f"Error: could not parse --notch-frequencies '{notch_frequencies}'. "
@@ -522,7 +491,9 @@ def calculate(
         if fdd:
             typer.echo(f"  FDD mode: fc={fdd_fc:.0f} Hz, D_max={fdd_dmax:.1f} dB")
         result = horn_response(
-            freqs, driver, horn,
+            freqs,
+            driver,
+            horn,
             T_voice=voice_coil_temp,
             compute_distortion=distortion,
             notch_filter=notch_filter,
@@ -554,7 +525,7 @@ def calculate(
             result.room_gain_db = np.zeros_like(freqs, dtype=float)
             result.room_type = "free_space"
 
-    # Output directory (used by both acoustic sim and wavefront outputs)
+    # Output directory
     horn_output_dir = output_dir / horn_name
     horn_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -576,158 +547,36 @@ def calculate(
                 fg="yellow",
             )
 
-    # ── Wavefront Simulation ─────────────────────────────────────────────────
-    # Note: wavefront_animate implies wavefront=True (convenience flag)
-    grid = None
-    mesh_xx = None
-    mesh_yy = None
-    walls = None
-    if wavefront or wavefront_animate:
-        typer.echo(f"Running 2-D wavefront simulation at {wavefront_freq} Hz...")
-
-        # Resolve geometry path for wavefront
-        if wavefront_geometry is not None:
-            wf_geo_path = wavefront_geometry
-        elif project_config is not None and project is not None:
-            wf_geo_path = project_config.parent / project.geometry_path
-        elif horn_config is not None:
-            wf_geo_path = horn_config
-        else:
-            typer.secho(
-                "Error: --wavefront requires --wavefront-geometry when no "
-                "--project or --horn is provided.",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
-
-        typer.echo(f"  Loading geometry from {wf_geo_path}")
-        from pyhorn_core.solver.wavefront import (
-            solve_2d_wave_pml,
-            load_horn_geometry,
-            plot_pressure_amplitude,
-            animate_wave_propagation,
-            boundary_condition_mask,
-        )
-
-        geo = load_horn_geometry(wf_geo_path)
-        coords = geo["coords"]
-
-        # Build a tight rectangular mesh around the horn
-        margin = 0.025  # 25 mm margin around geometry
-        x_min = float(coords[:, 0].min() - margin)
-        x_max = float(coords[:, 0].max() + margin)
-        y_min = float(coords[:, 1].min() - margin)
-        y_max = float(coords[:, 1].max() + margin)
-
-        mesh_x = np.linspace(x_min, x_max, wavefront_nx)
-        mesh_y = np.linspace(y_min, y_max, wavefront_ny)
-        mesh_xx, mesh_yy = np.meshgrid(mesh_x, mesh_y)
-
-        # Build wall boundary mask (5 mm wall exclusion band)
-        walls = boundary_condition_mask(
-            coords, mesh_xx, mesh_yy, wall_thickness=0.005
-        )
-
-        # Source position from geometry YAML; geometric centroid as fallback
-        if geo["source_x"] is not None and geo["source_y"] is not None:
-            source_x = float(geo["source_x"])
-            source_y = float(geo["source_y"])
-        else:
-            source_x = float(np.mean(coords[:, 0]))
-            source_y = float(np.mean(coords[:, 1]))
-            typer.secho(
-                f"  Warning: no driver_coord in geometry; using centroid "
-                f"({source_x:.3f}, {source_y:.3f}) as source.",
-                fg=typer.colors.YELLOW,
-            )
-
-        # Solve with PML absorbing boundary
-        grid = solve_2d_wave_pml(
-            mesh_x=mesh_xx,
-            mesh_y=mesh_yy,
-            source_x=source_x,
-            source_y=source_y,
-            frequency=wavefront_freq,
-            boundary_mask=walls,
-            pml_width=15,
-            kappa_max=2.0,
-        )
-        typer.echo(
-            f"  Solved: nx={wavefront_nx}, ny={wavefront_ny}, "
-            f"k={grid.k:.2f} rad/m, PML width=15"
-        )
-
-        # k·a validity check
-        try:
-            from pyhorn_core.solver.wavefront import ka_warning
-            ka_msg = ka_warning(
-                grid.pressure_field, mesh_xx, mesh_yy, wavefront_freq
-            )
-            if ka_msg:
-                typer.secho(f"  ⚠️  {ka_msg.strip()}", fg=typer.colors.YELLOW)
-        except Exception:
-            pass
-
-        # Horn path for overlay (closed polygon)
-        horn_path = coords.tolist()
-
-        # Static snapshot: 2-panel Re(p) + dB SPL figure
-        output_dir.mkdir(parents=True, exist_ok=True)
-        snapshot_path = output_dir / f"wavefront_{int(wavefront_freq)}Hz.png"
-        plot_pressure_amplitude(
-            pressure_field=grid.pressure_field,
-            mesh_x=mesh_xx,
-            mesh_y=mesh_yy,
-            horn_path=horn_path,
-            frequency=wavefront_freq,
-            output_path=str(snapshot_path),
-            figsize=(12, 9),
-        )
-        typer.echo(f"  Saved wavefront snapshot: {snapshot_path}")
-
-        # Animation: phase-cycle GIF using the steady-state field
-        if animate or wavefront_animate:
-            gif_path = output_dir / f"wavefront_animation_{int(wavefront_freq)}Hz.gif"
-            typer.echo("  Generating animation (48 frames)...")
-            animate_wave_propagation(
-                mesh_x=mesh_xx,
-                mesh_y=mesh_yy,
-                pressure_field=grid.pressure_field,
-                horn_path=horn_path,
-                frequency=wavefront_freq,
-                filename=str(gif_path),
-                n_frames=48,
-                interval_ms=80,
-                figsize=(12, 6),
-            )
-            typer.echo(f"  Saved wavefront animation: {gif_path}")
-
-        typer.echo("  Wavefront simulation complete.")
-
-    # In wavefront-only mode, skip the acoustic simulation result processing
-    if not run_acoustic_sim:
-        typer.secho("Calculation complete!", fg=typer.colors.GREEN)
-        return
-
     # 4. Compute off-axis SPL if requested (piston directivity at horn mouth)
     off_axis_spl: Optional[dict] = None
     if off_axis_angles is not None:
         angles_list = [int(a.strip()) for a in off_axis_angles.split(",") if a.strip()]
         if horn.mouth_area is None or horn.mouth_area <= 0:
-            typer.secho(" --off-axis-angles requires a valid horn.mouth_area; skipping off-axis export.", fg=typer.colors.YELLOW)
+            typer.secho(
+                " --off-axis-angles requires a valid horn.mouth_area; skipping off-axis export.",
+                fg=typer.colors.YELLOW,
+            )
         else:
-            off_axis_spl = _compute_piston_off_axis_spl(freqs, horn.mouth_area, angles_list)
+            off_axis_spl = _compute_piston_off_axis_spl(
+                freqs, horn.mouth_area, angles_list
+            )
             typer.echo(f"  Off-axis angles: {angles_list} (piston model at mouth)")
 
     # 5. Determine the primary SPL for the selected output mode
     if output_mode == "horn":
         primary_spl = result.horn_spl if result.horn_spl is not None else result.spl
         if result.horn_spl is None:
-            typer.secho("output-mode=horn but no horn SPL available — using combined SPL.", fg=typer.colors.YELLOW)
+            typer.secho(
+                "output-mode=horn but no horn SPL available — using combined SPL.",
+                fg=typer.colors.YELLOW,
+            )
     elif output_mode == "element":
         primary_spl = result.direct_spl if result.direct_spl is not None else result.spl
         if result.direct_spl is None:
-            typer.secho("output-mode=element but no direct SPL available — using combined SPL.", fg=typer.colors.YELLOW)
+            typer.secho(
+                "output-mode=element but no direct SPL available — using combined SPL.",
+                fg=typer.colors.YELLOW,
+            )
     else:
         primary_spl = result.spl
 
@@ -742,8 +591,16 @@ def calculate(
             else np.angle(result.impedance) * 180.0 / np.pi
         ),
         "Excursion (mm)": result.excursion,
-        "Cone Velocity (m/s)": result.cone_velocity if result.cone_velocity is not None else np.zeros_like(result.excursion),
-        "Phase (degrees)": np.degrees(result.phase) if result.phase is not None else np.zeros_like(result.spl),
+        "Cone Velocity (m/s)": (
+            result.cone_velocity
+            if result.cone_velocity is not None
+            else np.zeros_like(result.excursion)
+        ),
+        "Phase (degrees)": (
+            np.degrees(result.phase)
+            if result.phase is not None
+            else np.zeros_like(result.spl)
+        ),
     }
 
     # CRIT-3 fix: export acoustic-power-based SPL (dB/W/m Hornresp reference).
@@ -758,10 +615,18 @@ def calculate(
     # Add group delay column in the mode selected by --filter-delay-mode
     if filter_delay_mode == "per_period":
         gd_label = "Group delay per period (dimensionless)"
-        gd_vals = result.group_delay_per_period if result.group_delay_per_period is not None else np.zeros_like(result.spl)
+        gd_vals = (
+            result.group_delay_per_period
+            if result.group_delay_per_period is not None
+            else np.zeros_like(result.spl)
+        )
     else:
         gd_label = "Group delay (ms)"
-        gd_vals = result.group_delay if result.group_delay is not None else np.zeros_like(result.spl)
+        gd_vals = (
+            result.group_delay
+            if result.group_delay is not None
+            else np.zeros_like(result.spl)
+        )
     responses[gd_label] = gd_vals
 
     # ── Apply filter bands from YAML (post-processing) ─────────────────────────
@@ -773,7 +638,11 @@ def calculate(
         try:
             with open(_filter_yaml_path) as fh:
                 filter_data = yaml.safe_load(fh)
-            band_list = filter_data.get("filter_bands", []) if isinstance(filter_data, dict) else []
+            band_list = (
+                filter_data.get("filter_bands", [])
+                if isinstance(filter_data, dict)
+                else []
+            )
             bands: list[FilterBand] = [
                 FilterBand(
                     type=b.get("type", "peakingEQ"),
@@ -794,14 +663,20 @@ def calculate(
                 freqs,
                 np.array(primary_spl),
                 np.abs(result.impedance),
-                np.degrees(result.phase) if result.phase is not None else np.zeros_like(result.spl),
+                (
+                    np.degrees(result.phase)
+                    if result.phase is not None
+                    else np.zeros_like(result.spl)
+                ),
                 bands,
             )
             responses["Filtered SPL (dB)"] = np.array(filt_spl)
             responses["Filtered Impedance (Ohms)"] = np.array(filt_imp)
             responses["Filtered Phase (degrees)"] = np.array(filt_phase)
             responses["Filter contribution (dB)"] = np.array(filt_mag_db)
-            typer.echo(f"Applied {len([b for b in bands if b.enabled])} filter band(s) from {_filter_yaml_path}")
+            typer.echo(
+                f"Applied {len([b for b in bands if b.enabled])} filter band(s) from {_filter_yaml_path}"
+            )
 
     # Add second tone distortion column when available (single-segment horns only)
     if result.second_tone_distortion is not None:
@@ -840,11 +715,17 @@ def calculate(
 
     # Add diaphragm pressure — Hornresp pages 124-125 (Pa, complex; only for BLH)
     if result.diaphragm_pressure_total is not None:
-        responses["Diaphragm Pressure Total (Pa)"] = np.abs(result.diaphragm_pressure_total)
+        responses["Diaphragm Pressure Total (Pa)"] = np.abs(
+            result.diaphragm_pressure_total
+        )
     if result.diaphragm_pressure_horn_side is not None:
-        responses["Diaphragm Pressure Horn Side (Pa)"] = np.abs(result.diaphragm_pressure_horn_side)
+        responses["Diaphragm Pressure Horn Side (Pa)"] = np.abs(
+            result.diaphragm_pressure_horn_side
+        )
     if result.diaphragm_pressure_direct_side is not None:
-        responses["Diaphragm Pressure Direct Side (Pa)"] = np.abs(result.diaphragm_pressure_direct_side)
+        responses["Diaphragm Pressure Direct Side (Pa)"] = np.abs(
+            result.diaphragm_pressure_direct_side
+        )
 
     # Add particle velocity at throat, mouth, port — Hornresp page 106 (m/s peak)
     if result.particle_velocity_throat is not None:
@@ -866,7 +747,9 @@ def calculate(
 
     # Add radiation angle (mean -6 dB beamwidth half-angle) when computed
     if result.radiation_angle is not None:
-        responses["Radiation Angle (deg)"] = np.full_like(result.spl, result.radiation_angle)
+        responses["Radiation Angle (deg)"] = np.full_like(
+            result.spl, result.radiation_angle
+        )
 
     # Add Direction Index (DI) per angle — Hornresp page 94
     if result.direction_index is not None and result.off_axis_angles is not None:
@@ -880,7 +763,9 @@ def calculate(
     if export_csv:
         csv_path = horn_output_dir / "response.csv"
         export_to_csv(
-            freqs, responses, csv_path,
+            freqs,
+            responses,
+            csv_path,
             futtrup_gdlimit_ms=result.futtrup_gdlimit if futtrup_gd else None,
         )
         typer.echo(f"Exported CSV to {csv_path}")
@@ -888,7 +773,9 @@ def calculate(
     if export_json:
         json_path = horn_output_dir / "response.json"
         export_to_json(
-            freqs, responses, json_path,
+            freqs,
+            responses,
+            json_path,
             futtrup_gdlimit_ms=result.futtrup_gdlimit if futtrup_gd else None,
         )
         typer.echo(f"Exported JSON to {json_path}")
@@ -899,7 +786,9 @@ def calculate(
         typer.echo(f"Exported impulse response WAV to {export_wav}")
 
     if export_frd is not None:
-        _phase_rad = result.phase if result.phase is not None else np.zeros_like(result.spl)
+        _phase_rad = (
+            result.phase if result.phase is not None else np.zeros_like(result.spl)
+        )
         _phase_deg = np.degrees(_phase_rad)
         export_to_frd(freqs, primary_spl, _phase_deg, export_frd)
         typer.echo(f"Exported FRD to {export_frd}")
@@ -941,10 +830,6 @@ def calculate(
             plot_phase=plot_phase,
             plot_distortion=plot_distortion,
             polar_freq=polar_freq if polar_freq and polar_freq > 0 else None,
-            wavefront_grid=grid if (wavefront or wavefront_animate) else None,
-            wf_mesh_x=mesh_xx if (wavefront or wavefront_animate) else None,
-            wf_mesh_y=mesh_yy if (wavefront or wavefront_animate) else None,
-            wf_boundary_mask=walls if (wavefront or wavefront_animate) else None,
             show_spectrogram=spectrogram,
             spectrogram_window_ms=spectrogram_window_ms,
             spectrogram_overlap=spectrogram_overlap,
@@ -1150,7 +1035,9 @@ def calculate(
             edims = horn.enclosure_dims if horn.enclosure_dims else (0.5, 0.5)
             project_has_chambers = project_config is not None
             wall_t = getattr(project, "thickness", 0.0) if project_has_chambers else 0.0
-            rc_data = getattr(project, "rear_chamber", None) if project_has_chambers else None
+            rc_data = (
+                getattr(project, "rear_chamber", None) if project_has_chambers else None
+            )
             rc_tuple = None
             if rc_data is not None:
                 rc_tuple = (rc_data.width, rc_data.height, rc_data.depth)
@@ -1274,7 +1161,14 @@ def derive_ts(
     Outputs values in SI units ready for use in Pyhorn configurations.
     """
     # ── Input validation ──────────────────────────────────────────────────────
-    for name, val in [("fs", fs), ("Qes", qes), ("Qms", qms), ("Vas", vas), ("Re", re), ("Sd", sd)]:
+    for name, val in [
+        ("fs", fs),
+        ("Qes", qes),
+        ("Qms", qms),
+        ("Vas", vas),
+        ("Re", re),
+        ("Sd", sd),
+    ]:
         if val <= 0:
             raise typer.BadParameter(f"{name} must be positive, got {val}")
     # ── Convert inputs to SI ──────────────────────────────────────────────────

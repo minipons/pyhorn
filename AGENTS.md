@@ -19,7 +19,7 @@
 - Prefer adding new narrow tests over growing `pyhorn_core/tests/test_solver_models.py` further.
 
 ## Fast Validation
-- Benchmark-only: `python -m pytest tests/benchmarks/hornresp_gdb1/test_hirob_benchmark.py -q --no-header --no-cov`
+- Benchmark-only: `python -m pytest tests/benchmarks/hornresp_gdb1/test_hirob_benchmark.py -q --no-header`
 - Radiation-only: `python -m pytest pyhorn_core/tests/test_physics_radiation.py -q --no-header --no-cov`
 - Config-only: `python -m pytest pyhorn_core/tests/test_config_models.py pyhorn_core/tests/test_config_parser.py -q --no-header --no-cov`
 

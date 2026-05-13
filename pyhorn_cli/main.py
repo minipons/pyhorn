@@ -25,13 +25,11 @@ from pyhorn_cli.cli.horn_commands import (
     diagnose_spl,
     driver_front_volume,
 )
-from pyhorn_cli.cli.interactive_commands import wavefront_edit
-from pyhorn_cli.cli.optimize_commands import optimize, fold_optimized
-from pyhorn_cli.cli import registry_commands
+from pyhorn_cli.cli.optimize_commands import optimize
 from pyhorn_core.solver.horn_segment import compute_horn_segment
 
-
 # ─── Standalone top-level commands ───────────────────────────────────────────
+
 
 def _segment_wizard_impl(
     s1: Optional[float],
@@ -53,13 +51,19 @@ def _segment_wizard_impl(
     typer.echo(f"  Horn Segment Wizard — catenoidal (T=1)")
     typer.echo(f"{'='*60}")
 
-    param_labels = {"f12_hz": "Cutoff frequency F12", "l12_cm": "Horn length L12",
-                    "s2_cm2": "Mouth area S2", "s1_cm2": "Throat area S1"}
+    param_labels = {
+        "f12_hz": "Cutoff frequency F12",
+        "l12_cm": "Horn length L12",
+        "s2_cm2": "Mouth area S2",
+        "s1_cm2": "Throat area S1",
+    }
     label = param_labels.get(result.computed_param, result.computed_param)
     if result.computed_param == "f12_hz":
         typer.echo(f"\n  Computed {label}: {result.computed_value:.2f} Hz")
     elif result.computed_param == "l12_cm":
-        typer.echo(f"\n  Computed {label}: {result.computed_value:.2f} cm  ({result.computed_value/100:.4f} m)")
+        typer.echo(
+            f"\n  Computed {label}: {result.computed_value:.2f} cm  ({result.computed_value/100:.4f} m)"
+        )
     else:
         typer.echo(f"\n  Computed {label}: {result.computed_value:.2f} cm²")
 
@@ -68,13 +72,23 @@ def _segment_wizard_impl(
     typer.echo(f"  {'─'*50}")
     for frac, area_cm2 in result.area_profile:
         equiv_diameter_mm = 2.0 * math.sqrt(area_cm2 / math.pi) * 10.0
-        label_suffix = " (throat)" if frac == 0.0 else (" (mouth)" if frac == 1.0 else "")
-        typer.echo(f"  {frac:.2f}{label_suffix:>14}  {area_cm2:>12.2f}  {equiv_diameter_mm:>14.1f}")
+        label_suffix = (
+            " (throat)" if frac == 0.0 else (" (mouth)" if frac == 1.0 else "")
+        )
+        typer.echo(
+            f"  {frac:.2f}{label_suffix:>14}  {area_cm2:>12.2f}  {equiv_diameter_mm:>14.1f}"
+        )
     typer.echo(f"  {'─'*50}")
-    typer.echo(f"\n  System volume: {result.system_volume_l:.3f} L  (horn + 0.1 L throat chamber)")
+    typer.echo(
+        f"\n  System volume: {result.system_volume_l:.3f} L  (horn + 0.1 L throat chamber)"
+    )
     typer.echo(f"\n  Input parameters:")
-    for param, val, unit in [("S1 (throat)", s1, "cm²"), ("S2 (mouth)", s2, "cm²"),
-                               ("L12 (length)", l12, "cm"), ("F12 (cutoff)", f12, "Hz")]:
+    for param, val, unit in [
+        ("S1 (throat)", s1, "cm²"),
+        ("S2 (mouth)", s2, "cm²"),
+        ("L12 (length)", l12, "cm"),
+        ("F12 (cutoff)", f12, "Hz"),
+    ]:
         if val is not None:
             typer.echo(f"    {param}: {val} {unit}")
     typer.echo(f"\n{'='*60}\n")
@@ -82,7 +96,8 @@ def _segment_wizard_impl(
 
 # ─── Main app ─────────────────────────────────────────────────────────────────
 
-def run() -> None:
+
+def _build_app() -> typer.Typer:
     app = typer.Typer()
 
     # Simulation commands — all flat, no nesting
@@ -106,14 +121,14 @@ def run() -> None:
 
     # Optimisation
     app.command("optimize")(optimize)
-    app.command("fold-optimized")(fold_optimized)
 
-    # Interactive tools
-    app.command("wavefront-edit")(wavefront_edit)
+    return app
 
-    # Registry management
-    app.add_typer(registry_commands.app, name="registry")
 
+app = _build_app()
+
+
+def run() -> None:
     app()
 
 

@@ -4,6 +4,24 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+def _format_csv_value(value: Any) -> Any:
+    """Format numeric CSV values with at most two decimal places."""
+    if isinstance(value, (bool, np.bool_)):
+        return value
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        v = float(value)
+        if np.isnan(v) or np.isinf(v):
+            return v
+        rounded = round(v, 2)
+        if rounded == 0.0:
+            rounded = 0.0
+        if rounded.is_integer():
+            return str(int(rounded))
+        return f"{rounded:.2f}".rstrip("0").rstrip(".")
+    return value
+
 
 def export_to_csv(
     freqs: np.ndarray,
@@ -66,7 +84,7 @@ def export_to_csv(
                 row.append(particle_velocity_port[i])
             if futtrup_gdlimit_ms is not None:
                 row.append(futtrup_gdlimit_ms[i])
-            writer.writerow(row)
+            writer.writerow([_format_csv_value(v) for v in row])
 
 
 def export_to_json(

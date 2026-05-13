@@ -210,7 +210,7 @@ The main issue is benchmark-fixture drift, not a single isolated solver defect.
 
 Most important concrete points:
 
-- the current HiroB benchmark path does not actually match the Hornresp setup documented in `hornresp_params_hirob.txt`
+- the HiroB benchmark harness originally drifted away from the Hornresp setup documented in `tests/benchmarks/hornresp/hirob/reference/hornresp_params.txt`
 - `spl_response` is the biggest reason `result.spl` diverges from the Hornresp CSV above 1-2 kHz
 - `spl_power_based` should not be used as a full-band reference curve until the LF power normalization issue is addressed
 - even after stripping away pyhorn-only layers, a residual `~5-7 dB` HF gap remains, so there is still a genuine CRIT-3-style normalization problem underneath the fixture drift

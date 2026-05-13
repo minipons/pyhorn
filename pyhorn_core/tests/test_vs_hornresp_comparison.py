@@ -31,9 +31,12 @@ import numpy as np
 import pytest
 
 from pyhorn_core.config.models import DriverSpecs, HornGeometry
-from pyhorn_core.config.parser import parse_driver_specs, parse_horn_geometry, parse_horn_project
+from pyhorn_core.config.parser import (
+    parse_driver_specs,
+    parse_horn_geometry,
+    parse_horn_project,
+)
 from pyhorn_core.solver.models import horn_response
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Paths
@@ -45,10 +48,25 @@ HORNRESP_DATA = Path(__file__).parent / "hornresp_data"
 DRIVER_YAML = BENCHMARK_DIR / "hornresp_reference_driver.yaml"
 PROJECT_YAML = BENCHMARK_DIR / "hornresp_reference_project.yaml"
 
-# BKHiro geometry (referenced from projects/bkhiro.yaml → ../source/bkhiro.yaml)
-# May not exist yet; we handle this gracefully.
-BKHiro_PROJECT = Path("/Users/guillaume/P/GdB1/projects/bkhiro.yaml")
-BKHiro_SOURCE = Path("/Users/guillaume/P/GdB1/source/bkhiro.yaml")
+# BKHiro benchmark fixture lives under the repository benchmark fixtures.
+BKHiro_PROJECT = (
+    Path(__file__).resolve().parents[2]
+    / "tests"
+    / "benchmarks"
+    / "hornresp"
+    / "hirob"
+    / "fixture"
+    / "horn.yaml"
+)
+BKHiro_SOURCE = (
+    Path(__file__).resolve().parents[2]
+    / "tests"
+    / "benchmarks"
+    / "hornresp"
+    / "hirob"
+    / "fixture"
+    / "horn.yaml"
+)
 
 # Hornresp exported CSVs (when Geopan provides them)
 FLH_HORNRESP_CSV = HORNRESP_DATA / "hornresp_flh_reference" / "response.csv"
@@ -58,17 +76,18 @@ FLH_HORNRESP_CSV = HORNRESP_DATA / "hornresp_flh_reference" / "response.csv"
 # Expected reference values (from Hornresp simulation, Geopan Apr 28 2026)
 # ─────────────────────────────────────────────────────────────────────────────
 
-EXPECTED_FLH_PEAK_SPL_DB = 113.0     # dB — peak SPL for FLH reference
-EXPECTED_FLH_PEAK_FREQ_HZ = 1560.0   # Hz — frequency of peak SPL
-EXPECTED_FLH_EFF_PCT = 14.0          # % — peak efficiency
-EXPECTED_FLH_EFF_FREQ_HZ = 800.0     # Hz — frequency of peak efficiency
-TOL_PEAK_SPL_DB = 2.0                # dB — peak SPL tolerance
-TOL_EFF_PCT = 1.0                   # % — efficiency tolerance
+EXPECTED_FLH_PEAK_SPL_DB = 113.0  # dB — peak SPL for FLH reference
+EXPECTED_FLH_PEAK_FREQ_HZ = 1560.0  # Hz — frequency of peak SPL
+EXPECTED_FLH_EFF_PCT = 14.0  # % — peak efficiency
+EXPECTED_FLH_EFF_FREQ_HZ = 800.0  # Hz — frequency of peak efficiency
+TOL_PEAK_SPL_DB = 2.0  # dB — peak SPL tolerance
+TOL_EFF_PCT = 1.0  # % — efficiency tolerance
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures — FLH benchmark
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def flh_driver() -> DriverSpecs:
@@ -92,20 +111,30 @@ def flh_result(flh_driver, flh_geometry) -> "SimResult":
 # Fixtures — BKHiro (skip if geometry not yet defined)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def bkhiro_result() -> "SimResult | None":
     """Run horn_response() for BKHiro if geometry source file exists."""
     if not BKHiro_SOURCE.exists():
         pytest.skip(f"BKHiro geometry not yet defined: {BKHiro_SOURCE}")
-    proj, geo = parse_horn_project(BKHiro_PROJECT)
+    geo = parse_horn_geometry(BKHiro_PROJECT)
     # Derive driver specs from project or use FE166NV2 defaults
     from pyhorn_core.config.models import DriverSpecs as DS
 
     FE166NV2 = DS(
-        fs=49.6, qts=0.27, qes=0.28, qms=7.88,
-        vas=0.0369, re=7.8, bl=7.79,
-        mms=0.00699, cms=0.001472, rms=0.277,
-        sd=0.01327, le=0.0008, xmax=0.001,
+        fs=49.6,
+        qts=0.27,
+        qes=0.28,
+        qms=7.88,
+        vas=0.0369,
+        re=7.8,
+        bl=7.79,
+        mms=0.00699,
+        cms=0.001472,
+        rms=0.277,
+        sd=0.01327,
+        le=0.0008,
+        xmax=0.001,
         voltage=2.83,
     )
     freqs = np.linspace(20.0, 5000.0, 500)
@@ -117,6 +146,7 @@ def bkhiro_result() -> "SimResult | None":
 # ─────────────────────────────────────────────────────────────────────────────
 
 from dataclasses import dataclass
+
 
 @dataclass
 class SimResult:
@@ -141,8 +171,10 @@ def _to_sim(result) -> SimResult:
         efficiency_pct=result.efficiency_pct,
         phase=result.phase,
         group_delay=result.group_delay,
-        impedance_real=getattr(result, "impedance_real", None) or np.real(result.impedance),
-        impedance_imag=getattr(result, "impedance_imag", None) or np.imag(result.impedance),
+        impedance_real=getattr(result, "impedance_real", None)
+        or np.real(result.impedance),
+        impedance_imag=getattr(result, "impedance_imag", None)
+        or np.imag(result.impedance),
     )
 
 
@@ -150,7 +182,10 @@ def _to_sim(result) -> SimResult:
 # Helper: load Hornresp CSV when available
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _load_hornresp_csv() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+
+def _load_hornresp_csv() -> (
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None
+):
     """Load Hornresp reference CSV if exported.
 
     Returns (freq, spl, re_z, im_z) or None.
@@ -160,6 +195,7 @@ def _load_hornresp_csv() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray
     freq, spl, re_z, im_z = [], [], [], []
     with open(FLH_HORNRESP_CSV) as f:
         import csv as csv_lib
+
         for row in csv_lib.DictReader(f):
             freq.append(float(row["frequency"]))
             spl.append(float(row["spl"]))
@@ -172,6 +208,7 @@ def _load_hornresp_csv() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray
 # TEST: FLH response validity
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestFLHResponseValidity:
     """Validate pyhorn FLH reference simulation output is physically sound."""
 
@@ -183,8 +220,12 @@ class TestFLHResponseValidity:
         """
         band = (flh_result.freqs >= 80) & (flh_result.freqs <= 4000)
         spl_band = flh_result.spl[band]
-        assert np.all(spl_band >= 80.0), f"SPL below 80 dB in band: min={spl_band.min():.1f}"
-        assert np.all(spl_band <= 120.0), f"SPL above 120 dB: max={flh_result.spl.max():.1f}"
+        assert np.all(
+            spl_band >= 80.0
+        ), f"SPL below 80 dB in band: min={spl_band.min():.1f}"
+        assert np.all(
+            spl_band <= 120.0
+        ), f"SPL above 120 dB: max={flh_result.spl.max():.1f}"
 
     def test_no_nan_or_inf(self, flh_result):
         """No NaN or Inf values in SPL, impedance, excursion, or phase."""
@@ -246,9 +287,9 @@ class TestFLHResponseValidity:
         eff = flh_result.efficiency_pct
         idx_1khz = int(np.argmin(np.abs(flh_result.freqs - 1000)))
         eff_1khz = float(eff[idx_1khz])
-        assert 5.0 <= eff_1khz <= 20.0, (
-            f"Efficiency at 1 kHz ({eff_1khz:.1f}%) outside [5, 20]% range"
-        )
+        assert (
+            5.0 <= eff_1khz <= 20.0
+        ), f"Efficiency at 1 kHz ({eff_1khz:.1f}%) outside [5, 20]% range"
 
     def test_impedance_peak_near_fs(self, flh_result):
         """Impedance peak should occur near fs=49.6 Hz (±20 Hz).
@@ -272,9 +313,9 @@ class TestFLHResponseValidity:
         phase = flh_result.phase
         diffs = np.diff(phase)
         large_jumps = np.abs(diffs) > np.pi
-        assert not np.any(large_jumps), (
-            f"Phase has {np.sum(large_jumps)} unwrap failures (>180° jumps)"
-        )
+        assert not np.any(
+            large_jumps
+        ), f"Phase has {np.sum(large_jumps)} unwrap failures (>180° jumps)"
 
     def test_group_delay_mostly_positive(self, flh_result):
         """At least 90% of group delay values should be non-negative.
@@ -295,6 +336,7 @@ class TestFLHResponseValidity:
 # ─────────────────────────────────────────────────────────────────────────────
 # TEST: BKHiro response validity
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestBKHiroResponseValidity:
     """Validate pyhorn BKHiro simulation output is physically sound.
@@ -317,13 +359,21 @@ class TestBKHiroResponseValidity:
         if bkhiro_result is None:
             pytest.skip("BKHiro geometry not defined")
         # Full range — only assert against physically impossible values
-        assert np.all(bkhiro_result.spl <= 120.0), f"SPL above 120 dB (thermal limit): max={bkhiro_result.spl.max():.1f}"
-        assert np.all(bkhiro_result.spl >= 40.0), f"SPL below 40 dB (numerical issue?): min={bkhiro_result.spl.min():.1f}"
+        assert np.all(
+            bkhiro_result.spl <= 120.0
+        ), f"SPL above 120 dB (thermal limit): max={bkhiro_result.spl.max():.1f}"
+        assert np.all(
+            bkhiro_result.spl >= 40.0
+        ), f"SPL below 40 dB (numerical issue?): min={bkhiro_result.spl.min():.1f}"
         # Passband (>= 300 Hz) — should be well above the noise floor
         band = bkhiro_result.freqs >= 300.0
         spl_band = bkhiro_result.spl[band]
-        assert np.all(spl_band >= 75.0), f"SPL below 75 dB in passband (>= 300 Hz): min={spl_band.min():.1f} dB"
-        assert np.all(spl_band <= 120.0), f"SPL above 120 dB in passband: max={spl_band.max():.1f} dB"
+        assert np.all(
+            spl_band >= 75.0
+        ), f"SPL below 75 dB in passband (>= 300 Hz): min={spl_band.min():.1f} dB"
+        assert np.all(
+            spl_band <= 120.0
+        ), f"SPL above 120 dB in passband: max={spl_band.max():.1f} dB"
 
     def test_no_nan_or_inf(self, bkhiro_result):
         """No NaN or Inf values in BKHiro response arrays."""
@@ -350,9 +400,9 @@ class TestBKHiroResponseValidity:
             pytest.skip("BKHiro geometry not defined")
         peak_idx = int(np.argmax(bkhiro_result.spl))
         peak_spl = float(bkhiro_result.spl[peak_idx])
-        assert 100.0 <= peak_spl <= 120.0, (
-            f"BKHiro peak SPL {peak_spl:.1f} dB outside expected [100, 120] dB"
-        )
+        assert (
+            100.0 <= peak_spl <= 120.0
+        ), f"BKHiro peak SPL {peak_spl:.1f} dB outside expected [100, 120] dB"
 
     def test_bass_rolloff_below_fs(self, bkhiro_result):
         """SPL below 50 Hz should be at least 10 dB below midband SPL."""
@@ -375,6 +425,7 @@ class TestBKHiroResponseValidity:
 # ─────────────────────────────────────────────────────────────────────────────
 # TEST: Hornresp reference comparison (activates when Geopan's CSV arrives)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestHornrespReferenceComparison:
     """Compare pyhorn simulation against Hornresp exported CSV.

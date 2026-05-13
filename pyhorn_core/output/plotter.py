@@ -14,7 +14,6 @@ from pyhorn_core.solver.models import SimulationResult
 from pyhorn_core.solver.spectrogram import compute_spectrogram, plot_spectrogram
 
 if TYPE_CHECKING:
-    from pyhorn_core.solver.wavefront import WavefrontGrid
     import matplotlib.pyplot as plt
 
 # ─── Shared style ────────────────────────────────────────────────────────────
@@ -81,10 +80,6 @@ def plot_simulation_results(
     plot_phase: bool = True,
     plot_distortion: bool = True,
     polar_freq: Optional[float] = None,
-    wavefront_grid: Optional["WavefrontGrid"] = None,
-    wf_mesh_x: Optional[NDArray[np.float64]] = None,
-    wf_mesh_y: Optional[NDArray[np.float64]] = None,
-    wf_boundary_mask: Optional[NDArray[np.bool_]] = None,
     show_spectrogram: bool = False,
     spectrogram_window_ms: float = 50.0,
     spectrogram_overlap: float = 0.5,
@@ -108,10 +103,6 @@ def plot_simulation_results(
 
     polar_freq: when provided (Hz), adds a polar piston directivity panel at that frequency.
 
-    wavefront_grid, wf_mesh_x, wf_mesh_y, wf_boundary_mask: when all four are provided,
-                adds a second polar panel (last slot) derived from the 2-D wavefront
-                pressure field at the given polar_freq.
-
     show_spectrogram: when True, adds a spectrogram (STFT) panel between the
                 distortion panel and the polar panel, showing spectral intensity vs.
                 frequency and time.
@@ -129,25 +120,91 @@ def plot_simulation_results(
         fig, ax = plt.subplots(figsize=(10, 5))
         freqs = result.freqs
         if output_mode == "horn" and result.horn_spl is not None:
-            ax.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linewidth=0.9, label="Horn")
+            ax.semilogx(
+                freqs,
+                result.horn_spl,
+                color=_COLORS["horn"],
+                linewidth=0.9,
+                label="Horn",
+            )
             if result.spl is not None:
-                ax.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
+                ax.semilogx(
+                    freqs,
+                    result.spl,
+                    color=_COLORS["spl"],
+                    linewidth=0.5,
+                    linestyle="--",
+                    label="Total (ref)",
+                    alpha=0.7,
+                )
         elif output_mode == "element" and result.direct_spl is not None:
-            ax.semilogx(freqs, result.direct_spl, color=_COLORS["direct"], linewidth=0.9, label="Direct radiator")
+            ax.semilogx(
+                freqs,
+                result.direct_spl,
+                color=_COLORS["direct"],
+                linewidth=0.9,
+                label="Direct radiator",
+            )
             if result.spl is not None:
-                ax.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
+                ax.semilogx(
+                    freqs,
+                    result.spl,
+                    color=_COLORS["spl"],
+                    linewidth=0.5,
+                    linestyle="--",
+                    label="Total (ref)",
+                    alpha=0.7,
+                )
         else:
-            ax.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.9, label="Total")
+            ax.semilogx(
+                freqs, result.spl, color=_COLORS["spl"], linewidth=0.9, label="Total"
+            )
             if result.direct_spl is not None:
-                ax.semilogx(freqs, result.direct_spl, color=_COLORS["direct"], linestyle="--", linewidth=0.7, label="Direct (cone)", alpha=0.7)
+                ax.semilogx(
+                    freqs,
+                    result.direct_spl,
+                    color=_COLORS["direct"],
+                    linestyle="--",
+                    linewidth=0.7,
+                    label="Direct (cone)",
+                    alpha=0.7,
+                )
             if result.horn_spl is not None:
-                ax.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linestyle="--", linewidth=0.7, label="Horn", alpha=0.3)
+                ax.semilogx(
+                    freqs,
+                    result.horn_spl,
+                    color=_COLORS["horn"],
+                    linestyle="--",
+                    linewidth=0.7,
+                    label="Horn",
+                    alpha=0.3,
+                )
             if result.spl_power_based is not None:
-                ax.semilogx(freqs, result.spl_power_based, color="#16a34a", linewidth=0.9, label="dB/W/m (calibrated)", alpha=0.85)
+                ax.semilogx(
+                    freqs,
+                    result.spl_power_based,
+                    color="#16a34a",
+                    linewidth=0.9,
+                    label="dB/W/m (calibrated)",
+                    alpha=0.85,
+                )
         if hasattr(result, "ib_spl") and result.ib_spl is not None:
-            ax.semilogx(freqs, result.ib_spl, color=_COLORS["reference"], linestyle=":", linewidth=0.7, label="Infinite Baffle")
+            ax.semilogx(
+                freqs,
+                result.ib_spl,
+                color=_COLORS["reference"],
+                linestyle=":",
+                linewidth=0.7,
+                label="Infinite Baffle",
+            )
         if target_spl is not None:
-            ax.axhline(target_spl, color=_COLORS["target"], linestyle="--", linewidth=0.7, label=f"Target ({target_spl:.1f} dB)")
+            ax.axhline(
+                target_spl,
+                color=_COLORS["target"],
+                linestyle="--",
+                linewidth=0.7,
+                label=f"Target ({target_spl:.1f} dB)",
+            )
         ax.legend(fontsize=8, framealpha=0.6, edgecolor="none")
         # ylim must encompass ALL visible curves, not just result.spl
         all_spls = [result.spl]
@@ -162,19 +219,14 @@ def plot_simulation_results(
         ymax = max(np.max(s) for s in all_spls)
         ymin = min(np.min(s) for s in all_spls)
         ax.set_ylim(bottom=max(40, ymin - 10), top=ymax + 10)
-        _apply_style(ax, xlabel="Frequency (Hz)", ylabel="SPL (dB @ 1W/1m)", freq_axis=True)
+        _apply_style(
+            ax, xlabel="Frequency (Hz)", ylabel="SPL (dB @ 1W/1m)", freq_axis=True
+        )
         fig.tight_layout()
         fig.savefig(output_path, dpi=150)
         plt.close(fig)
         return
 
-    _has_wf_polar = (
-        wavefront_grid is not None
-        and wf_mesh_x is not None
-        and wf_mesh_y is not None
-        and wf_boundary_mask is not None
-        and polar_freq is not None
-    )
     n_rows = 5 if plot_phase else 4
     _has_cone_velocity = result.cone_velocity is not None
     _has_cone_acceleration = result.cone_acceleration is not None
@@ -196,8 +248,6 @@ def plot_simulation_results(
     if result.second_tone_distortion is not None and plot_distortion:
         n_rows += 1
     if polar_freq is not None and result.off_axis_spl is not None:
-        n_rows += 1
-    if _has_wf_polar:
         n_rows += 1
     if show_spectrogram:
         n_rows += 1
@@ -238,14 +288,22 @@ def plot_simulation_results(
     #   0: SPL | 1: Impedance | 2: Excursion | 3: Phase+GD | 4: Throat Z
     #   5: Cone Velocity (if result.cone_velocity is not None)
     #   6: Cone Acceleration (if result.cone_acceleration is not None)
-    #   Above optional panels (stacked from top): polar, wf_polar, spectrogram, DI, distortion, efficiency
+    #   Above optional panels (stacked from top): polar, spectrogram, DI, distortion, efficiency
     #
     # Cone Velocity slot: axes[5] if plot_phase else axes[4]
     # Cone Acceleration slot: axes[6] if plot_phase else axes[5]
     # Efficiency: always at top of optional stack = n_rows-1 minus panels above it
     # Throat Z: always axes[4] (if plot_phase)
-    cone_vel_ax = axes[5] if (_has_cone_velocity and plot_phase) else (axes[4] if _has_cone_velocity else None)
-    cone_acc_ax = axes[6] if (_has_cone_acceleration and plot_phase) else (axes[5] if _has_cone_acceleration else None)
+    cone_vel_ax = (
+        axes[5]
+        if (_has_cone_velocity and plot_phase)
+        else (axes[4] if _has_cone_velocity else None)
+    )
+    cone_acc_ax = (
+        axes[6]
+        if (_has_cone_acceleration and plot_phase)
+        else (axes[5] if _has_cone_acceleration else None)
+    )
     pv_ax = None
     if _has_pv:
         # Particle velocity panel slot: after cone_acc, before efficiency stack
@@ -262,32 +320,26 @@ def plot_simulation_results(
         and n_rows >= (8 if _has_cone_velocity else 7)
     )
     # eff_base: base index for the efficiency panel, accounting for all stacked optional panels above it
-    eff_base = n_rows - (4 + (_has_wf_polar or show_spectrogram or _has_di or _has_distortion or _has_efficiency))
+    eff_base = n_rows - (
+        4 + (show_spectrogram or _has_di or _has_distortion or _has_efficiency)
+    )
     _eff_ax_pos = eff_base
     eff_ax = axes[eff_base] if _has_efficiency else None
-    driver_power_ax = axes[eff_base + 1] if result.electrical_input_power is not None else None
+    driver_power_ax = (
+        axes[eff_base + 1] if result.electrical_input_power is not None else None
+    )
     dist_ax = axes[eff_base + 2] if _has_distortion else None
     spec_ax = axes[eff_base + 3] if show_spectrogram else None
     di_ax = axes[eff_base + 4] if _has_di else None
     polar_ax = axes[n_rows - 1] if _has_polar else None
 
-    if _has_wf_polar:
-        # Two polar panels: piston at 2nd-to-last, wavefront at last
-        # Replace the 2nd-to-last and last regular axes with polar projection axes
-        axes = list(axes)
-        axes[n_rows - 2] = fig.add_subplot(n_rows, 1, n_rows - 1, projection="polar")
-        axes[n_rows - 1] = fig.add_subplot(n_rows, 1, n_rows, projection="polar")
-        polar_ax = axes[n_rows - 2]
-        wf_polar_ax: Optional["plt.Axes"] = axes[n_rows - 1]
-    elif _has_polar:
+    if _has_polar:
         # Replace the last regular axis with polar projection
         axes = list(axes)
         axes[n_rows - 1] = fig.add_subplot(n_rows, 1, n_rows, projection="polar")
         polar_ax = axes[n_rows - 1]
-        wf_polar_ax = None
     else:
         polar_ax = None
-        wf_polar_ax = None
 
     freqs = result.freqs
 
@@ -295,23 +347,70 @@ def plot_simulation_results(
     if output_mode == "horn" and result.horn_spl is not None:
         primary_spl = result.horn_spl
         primary_label = "Horn"
-        ax1.semilogx(freqs, primary_spl, color=_COLORS["horn"], linewidth=0.8, label=primary_label, alpha=0.3)
+        ax1.semilogx(
+            freqs,
+            primary_spl,
+            color=_COLORS["horn"],
+            linewidth=0.8,
+            label=primary_label,
+            alpha=0.3,
+        )
         if result.spl is not None:
-            ax1.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
+            ax1.semilogx(
+                freqs,
+                result.spl,
+                color=_COLORS["spl"],
+                linewidth=0.5,
+                linestyle="--",
+                label="Total (ref)",
+                alpha=0.7,
+            )
         if result.direct_spl is not None:
-            ax1.semilogx(freqs, result.direct_spl, color=_COLORS["direct"], linewidth=0.5, linestyle=":", label="Element (ref)", alpha=0.6)
+            ax1.semilogx(
+                freqs,
+                result.direct_spl,
+                color=_COLORS["direct"],
+                linewidth=0.5,
+                linestyle=":",
+                label="Element (ref)",
+                alpha=0.6,
+            )
     elif output_mode == "element" and result.direct_spl is not None:
         primary_spl = result.direct_spl
         primary_label = "Direct radiator"
-        ax1.semilogx(freqs, primary_spl, color=_COLORS["direct"], linewidth=0.8, label=primary_label)
+        ax1.semilogx(
+            freqs,
+            primary_spl,
+            color=_COLORS["direct"],
+            linewidth=0.8,
+            label=primary_label,
+        )
         if result.spl is not None:
-            ax1.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
+            ax1.semilogx(
+                freqs,
+                result.spl,
+                color=_COLORS["spl"],
+                linewidth=0.5,
+                linestyle="--",
+                label="Total (ref)",
+                alpha=0.7,
+            )
         if result.horn_spl is not None:
-            ax1.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linewidth=0.5, linestyle=":", label="Horn (ref)", alpha=0.3)
+            ax1.semilogx(
+                freqs,
+                result.horn_spl,
+                color=_COLORS["horn"],
+                linewidth=0.5,
+                linestyle=":",
+                label="Horn (ref)",
+                alpha=0.3,
+            )
     else:
         # combined (default) — show total as primary, components as dashed overlays
         primary_spl = result.spl
-        ax1.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.8, label="Total")
+        ax1.semilogx(
+            freqs, result.spl, color=_COLORS["spl"], linewidth=0.8, label="Total"
+        )
 
         if result.direct_spl is not None:
             ax1.semilogx(
@@ -400,7 +499,9 @@ def plot_simulation_results(
             linestyle=":",
             label="Z phase",
         )
-        ax2_z.set_ylabel("Impedance Phase (°)", fontsize=8, color=_COLORS["impedance_phase"])
+        ax2_z.set_ylabel(
+            "Impedance Phase (°)", fontsize=8, color=_COLORS["impedance_phase"]
+        )
         ax2_z.tick_params(axis="y", labelcolor=_COLORS["impedance_phase"])
         ax2_z.set_ylim(-120, 120)
         ax2_z.spines["right"].set_visible(True)
@@ -408,7 +509,13 @@ def plot_simulation_results(
         lines2, labels2 = ax2.get_legend_handles_labels()
         lines2_z, labels2_z = ax2_z.get_legend_handles_labels()
         if lines2 or lines2_z:
-            ax2.legend(lines2 + lines2_z, labels2 + labels2_z, fontsize=7, framealpha=0.6, edgecolor="none")
+            ax2.legend(
+                lines2 + lines2_z,
+                labels2 + labels2_z,
+                fontsize=7,
+                framealpha=0.6,
+                edgecolor="none",
+            )
     elif target_impedance is not None:
         ax2.legend(fontsize=7, framealpha=0.6, edgecolor="none")
 
@@ -461,7 +568,9 @@ def plot_simulation_results(
                     max(-50.0, np.min(finite_gd) - 2.0),
                     min(50.0, np.max(finite_gd) + 2.0),
                 )
-            ax4_gd.set_ylabel("Group Delay (ms)", fontsize=8, color=_COLORS["group_delay"])
+            ax4_gd.set_ylabel(
+                "Group Delay (ms)", fontsize=8, color=_COLORS["group_delay"]
+            )
             ax4_gd.tick_params(axis="y", labelcolor=_COLORS["group_delay"])
             ax4_gd.spines["right"].set_visible(True)
 
@@ -511,7 +620,10 @@ def plot_simulation_results(
         )
         ax5.set_xlim(min(freqs), max(freqs))
         _apply_style(
-            ax5, xlabel="Frequency (Hz)", ylabel="Acoustic Impedance (acoustic \u03a9)", freq_axis=True
+            ax5,
+            xlabel="Frequency (Hz)",
+            ylabel="Acoustic Impedance (acoustic \u03a9)",
+            freq_axis=True,
         )
         if ax5.lines:
             ax5.legend(fontsize=7, framealpha=0.6, edgecolor="none")
@@ -525,7 +637,11 @@ def plot_simulation_results(
             linewidth=0.8,
         )
         cone_vel_ax.set_xlim(min(freqs), max(freqs))
-        cv_max = float(np.max(result.cone_velocity[np.isfinite(result.cone_velocity)])) if result.cone_velocity.size else 1.0
+        cv_max = (
+            float(np.max(result.cone_velocity[np.isfinite(result.cone_velocity)]))
+            if result.cone_velocity.size
+            else 1.0
+        )
         cone_vel_ax.set_ylim(bottom=0.0, top=cv_max * 1.2 + 0.1)
         _apply_style(
             cone_vel_ax,
@@ -544,7 +660,13 @@ def plot_simulation_results(
             linewidth=0.8,
         )
         cone_acc_ax.set_xlim(min(freqs), max(freqs))
-        ca_max = float(np.max(result.cone_acceleration[np.isfinite(result.cone_acceleration)])) if result.cone_acceleration.size else 1.0
+        ca_max = (
+            float(
+                np.max(result.cone_acceleration[np.isfinite(result.cone_acceleration)])
+            )
+            if result.cone_acceleration.size
+            else 1.0
+        )
         cone_acc_ax.set_ylim(bottom=0.0, top=ca_max * 1.2 + 0.1)
         cone_acc_ax.set_yscale("log")
         _apply_style(
@@ -560,7 +682,7 @@ def plot_simulation_results(
         pv_configs = [
             (result.particle_velocity_throat, "Throat", "#dc2626"),  # red-600
             (result.particle_velocity_mouth, "Mouth", "#2563eb"),  # blue-600
-            (result.particle_velocity_port, "Port", "#16a34a"),    # green-600
+            (result.particle_velocity_port, "Port", "#16a34a"),  # green-600
         ]
         any_positive = False
         for pv_arr, label, color in pv_configs:
@@ -590,7 +712,11 @@ def plot_simulation_results(
         )
         eff_ax.set_xlim(min(freqs), max(freqs))
         # Autoscale y: start at 0, top = max + 20% headroom, capped at 100
-        eff_max = float(np.max(eff_display[np.isfinite(eff_display)])) if eff_display.size else 20.0
+        eff_max = (
+            float(np.max(eff_display[np.isfinite(eff_display)]))
+            if eff_display.size
+            else 20.0
+        )
         eff_ax.set_ylim(bottom=0.0, top=min(100.0, eff_max * 1.2 + 0.5))
         _apply_style(
             eff_ax, xlabel="Frequency (Hz)", ylabel="Efficiency (%)", freq_axis=True
@@ -669,9 +795,11 @@ def plot_simulation_results(
         except Exception:
             # Spectrogram is non-critical; skip gracefully
             spec_ax.text(
-                0.5, 0.5,
+                0.5,
+                0.5,
                 "Spectrogram unavailable",
-                ha="center", va="center",
+                ha="center",
+                va="center",
                 transform=spec_ax.transAxes,
                 fontsize=8,
                 color="gray",
@@ -679,9 +807,11 @@ def plot_simulation_results(
             spec_ax.set_axis_off()
     elif show_spectrogram and spec_ax is not None:
         spec_ax.text(
-            0.5, 0.5,
+            0.5,
+            0.5,
             "Pressure data required for spectrogram",
-            ha="center", va="center",
+            ha="center",
+            va="center",
             transform=spec_ax.transAxes,
             fontsize=8,
             color="gray",
@@ -731,12 +861,14 @@ def plot_simulation_results(
                 loc="lower left",
                 ncol=3,
             )
-        _apply_style(
-            di_ax, xlabel="Frequency (Hz)", ylabel="DI (dB)", freq_axis=True
-        )
+        _apply_style(di_ax, xlabel="Frequency (Hz)", ylabel="DI (dB)", freq_axis=True)
 
     # 9. Polar Directivity Panel
-    if polar_ax is not None and result.off_axis_spl is not None and result.off_axis_angles is not None:
+    if (
+        polar_ax is not None
+        and result.off_axis_spl is not None
+        and result.off_axis_angles is not None
+    ):
         freq_idx = int(np.argmin(np.abs(result.freqs - polar_freq)))
         chosen_freq = result.freqs[freq_idx]
         plot_polar_response(
@@ -744,18 +876,6 @@ def plot_simulation_results(
             result.off_axis_angles,
             chosen_freq,
             polar_ax,
-        )
-
-    # 10. Wavefront-derived Polar Directivity Panel
-    if wf_polar_ax is not None:
-        from pyhorn_core.solver.wavefront import plot_wavefront_polar
-        plot_wavefront_polar(
-            pressure_field=wavefront_grid.pressure_field,
-            mesh_x=wf_mesh_x,
-            mesh_y=wf_mesh_y,
-            boundary_mask=wf_boundary_mask,
-            frequency=polar_freq,
-            ax=wf_polar_ax,
         )
 
     plt.tight_layout(h_pad=1.5)
@@ -789,18 +909,22 @@ def plot_polar_response(
     # Build full 360° symmetric piston pattern from half-plane data
     angles_deg = off_axis_angles  # e.g. [0, 15, 30, 45, 60, 75, 90]
     # Mirror: 0..90 → 90..0 → 180..0 → 180..90
-    all_angles = np.concatenate([
-        angles_deg,
-        180.0 - angles_deg[1:][::-1],
-        180.0 + angles_deg[1:],
-        360.0 - angles_deg[1:][::-1],
-    ])
-    all_db = np.concatenate([
-        off_axis_spl,
-        off_axis_spl[1:][::-1],    # mirror 90→0
-        off_axis_spl[1:],          # 180+0..90
-        off_axis_spl[1:][::-1],    # mirror 270→360
-    ])
+    all_angles = np.concatenate(
+        [
+            angles_deg,
+            180.0 - angles_deg[1:][::-1],
+            180.0 + angles_deg[1:],
+            360.0 - angles_deg[1:][::-1],
+        ]
+    )
+    all_db = np.concatenate(
+        [
+            off_axis_spl,
+            off_axis_spl[1:][::-1],  # mirror 90→0
+            off_axis_spl[1:],  # 180+0..90
+            off_axis_spl[1:][::-1],  # mirror 270→360
+        ]
+    )
 
     # Clip to physically plausible range
     all_db = np.clip(all_db, -40.0, 0.0)
@@ -816,25 +940,47 @@ def plot_polar_response(
 
     # Reference circles at -10, -20, -30 dB
     for db_ref in [-10.0, -20.0, -30.0]:
-        ax.plot(theta, [-db_ref] * len(theta), color="#9ca3af",
-                linewidth=0.3, linestyle="--", alpha=0.6, zorder=0)
-        ax.text(np.deg2rad(90), -db_ref + 0.3, f"{db_ref:.0f}",
-                fontsize=5, color="#9ca3af", ha="left", va="center", zorder=3)
+        ax.plot(
+            theta,
+            [-db_ref] * len(theta),
+            color="#9ca3af",
+            linewidth=0.3,
+            linestyle="--",
+            alpha=0.6,
+            zorder=0,
+        )
+        ax.text(
+            np.deg2rad(90),
+            -db_ref + 0.3,
+            f"{db_ref:.0f}",
+            fontsize=5,
+            color="#9ca3af",
+            ha="left",
+            va="center",
+            zorder=3,
+        )
 
     # On-axis marker
     ax.plot(0, 0, "o", color="#dc2626", markersize=3, zorder=4)
 
-    ax.set_theta_zero_location("N")    # 0° at top
-    ax.set_theta_direction(-1)        # clockwise (standard acoustic polar)
+    ax.set_theta_zero_location("N")  # 0° at top
+    ax.set_theta_direction(-1)  # clockwise (standard acoustic polar)
     ax.set_thetamin(0)
     ax.set_thetamax(270)
     ax.set_rlim(0, 30)
-    ax.set_rgrids([0, 5, 10, 15, 20, 25, 30],
-                  ["0", "−5", "−10", "−15", "−20", "−25", "−30"],
-                  fontsize=5, color="#6b7280")
+    ax.set_rgrids(
+        [0, 5, 10, 15, 20, 25, 30],
+        ["0", "−5", "−10", "−15", "−20", "−25", "−30"],
+        fontsize=5,
+        color="#6b7280",
+    )
     ax.tick_params(labelsize=5, pad=1)
-    ax.set_title(f"Polar Response @ {freq:.0f} Hz\n(SPL dB rel to on-axis)",
-                 fontsize=6, pad=8, fontweight="medium")
+    ax.set_title(
+        f"Polar Response @ {freq:.0f} Hz\n(SPL dB rel to on-axis)",
+        fontsize=6,
+        pad=8,
+        fontweight="medium",
+    )
 
 
 def plot_horn_3d(
@@ -864,6 +1010,9 @@ def plot_horn_3d(
 
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+    x_max_all = 0.0
+    y_max_all = 0.0
+
     for i in range(len(z_coords) - 1):
         z1, z2 = z_coords[i], z_coords[i + 1]
         a1, a2 = areas[i], areas[i + 1]
@@ -886,30 +1035,33 @@ def plot_horn_3d(
         x2 = [-w2 / 2, w2 / 2, w2 / 2, -w2 / 2, -w2 / 2]
         y2 = [-h2 / 2, -h2 / 2, h2 / 2, h2 / 2, -h2 / 2]
 
+        x_max_all = max(x_max_all, max(abs(v) for v in x1), max(abs(v) for v in x2))
+        y_max_all = max(y_max_all, max(abs(v) for v in y1), max(abs(v) for v in y2))
+
         verts = [
             [
-                (z1, x1[0], y1[0]),
-                (z1, x1[1], y1[1]),
-                (z2, x2[1], y2[1]),
-                (z2, x2[0], y2[0]),
+                (z1 * 100, x1[0] * 100, y1[0] * 100),
+                (z1 * 100, x1[1] * 100, y1[1] * 100),
+                (z2 * 100, x2[1] * 100, y2[1] * 100),
+                (z2 * 100, x2[0] * 100, y2[0] * 100),
             ],
             [
-                (z1, x1[1], y1[1]),
-                (z1, x1[2], y1[2]),
-                (z2, x2[2], y2[2]),
-                (z2, x2[1], y2[1]),
+                (z1 * 100, x1[1] * 100, y1[1] * 100),
+                (z1 * 100, x1[2] * 100, y1[2] * 100),
+                (z2 * 100, x2[2] * 100, y2[2] * 100),
+                (z2 * 100, x2[1] * 100, y2[1] * 100),
             ],
             [
-                (z1, x1[2], y1[2]),
-                (z1, x1[3], y1[3]),
-                (z2, x2[3], y2[3]),
-                (z2, x2[2], y2[2]),
+                (z1 * 100, x1[2] * 100, y1[2] * 100),
+                (z1 * 100, x1[3] * 100, y1[3] * 100),
+                (z2 * 100, x2[3] * 100, y2[3] * 100),
+                (z2 * 100, x2[2] * 100, y2[2] * 100),
             ],
             [
-                (z1, x1[3], y1[3]),
-                (z1, x1[0], y1[0]),
-                (z2, x2[0], y2[0]),
-                (z2, x2[3], y2[3]),
+                (z1 * 100, x1[3] * 100, y1[3] * 100),
+                (z1 * 100, x1[0] * 100, y1[0] * 100),
+                (z2 * 100, x2[0] * 100, y2[0] * 100),
+                (z2 * 100, x2[3] * 100, y2[3] * 100),
             ],
         ]
 
@@ -920,14 +1072,19 @@ def plot_horn_3d(
         )
         ax.add_collection3d(collection)
 
-        ax.plot([z1] * 5, x1, y1, color="#374151", alpha=0.5, linewidth=0.3)
+        ax.plot([z1 * 100] * 5, [x * 100 for x in x1], [y * 100 for y in y1], color="#374151", alpha=0.5, linewidth=0.3)
         if i == len(z_coords) - 2:
-            ax.plot([z2] * 5, x2, y2, color="#374151", alpha=0.5, linewidth=0.3)
+            ax.plot([z2 * 100] * 5, [x * 100 for x in x2], [y * 100 for y in y2], color="#374151", alpha=0.5, linewidth=0.3)
 
-    ax.set_box_aspect((3, 1, 1))
-    ax.set_xlabel("Length (m)", fontsize=6)
-    ax.set_ylabel("Width (m)", fontsize=6)
-    ax.set_zlabel("Height (m)", fontsize=6)
+    z_range = (z_coords[-1] - z_coords[0]) * 100
+    x_max = x_max_all * 100
+    y_max = y_max_all * 100
+    x_range = max(x_max, 1e-6)
+    y_range = max(y_max, 1e-6)
+    ax.set_box_aspect((z_range / x_range, 1, y_range / x_range))
+    ax.set_xlabel("Length (cm)", fontsize=6)
+    ax.set_ylabel("Width (cm)", fontsize=6)
+    ax.set_zlabel("Height (cm)", fontsize=6)
     ax.tick_params(labelsize=6, width=0.25, length=1.5)
     ax.set_title("Horn Profile (Unwrapped)", fontsize=7, fontweight="medium")
     ax.view_init(elev=18, azim=40)
@@ -982,7 +1139,11 @@ def plot_horn_2d_folded(
         ax.add_patch(rect)
 
     # 2. Process segments — draw horn path inside enclosure
-    pts = np.array(coordinates) if (coordinates and len(coordinates) >= 2) else np.empty((0, 2))
+    pts = (
+        np.array(coordinates)
+        if (coordinates and len(coordinates) >= 2)
+        else np.empty((0, 2))
+    )
     n_seg = min(len(conical_segments), max(0, len(pts) - 1))
 
     if n_seg > 0:
@@ -1005,16 +1166,27 @@ def plot_horn_2d_folded(
             face_color = colormaps["Blues"](0.15 + 0.45 * t)
             poly = Polygon(
                 [w1_inner, w2_inner, w2_outer, w1_outer],
-                fill=True, facecolor=face_color, alpha=0.5,
-                edgecolor="#374151", linewidth=0.5,
+                fill=True,
+                facecolor=face_color,
+                alpha=0.5,
+                edgecolor="#374151",
+                linewidth=0.5,
             )
             ax.add_patch(poly)
         # Centerline + throat/mouth markers
-        center_pts = pts[:n_seg + 1]
-        ax.plot(center_pts[:, 0], center_pts[:, 1],
-                color="#dc2626", linestyle="-", alpha=0.5, linewidth=0.4)
+        center_pts = pts[: n_seg + 1]
+        ax.plot(
+            center_pts[:, 0],
+            center_pts[:, 1],
+            color="#dc2626",
+            linestyle="-",
+            alpha=0.5,
+            linewidth=0.4,
+        )
         ax.plot(pts[0][0], pts[0][1], "o", color="#dc2626", markersize=3, zorder=4)
-        ax.plot(pts[n_seg][0], pts[n_seg][1], "s", color="#dc2626", markersize=3, zorder=4)
+        ax.plot(
+            pts[n_seg][0], pts[n_seg][1], "s", color="#dc2626", markersize=3, zorder=4
+        )
 
     # 4. Draw Driver if provided
     if driver_coord:

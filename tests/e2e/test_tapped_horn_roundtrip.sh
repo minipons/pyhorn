@@ -11,7 +11,7 @@ rm -rf "$OUT_DIR"
 
 # tapped-horn requires a driver YAML with T-S parameters and a TH geometry YAML
 DRIVER="drivers/FE166NV2.yaml"
-TH_GEOM="source/th_example.yaml"
+TH_GEOM="examples/geometry/th_example.yaml"
 
 if [ ! -f "$DRIVER" ]; then
   echo "ERROR: Driver YAML not found at $DRIVER"

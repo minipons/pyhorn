@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 from pyhorn_core.config.models import DriverSpecs, HornGeometry, Section
-from pyhorn_core.config.parser import parse_driver_specs, parse_horn_geometry, parse_horn_project
+from pyhorn_core.config.parser import (
+    parse_driver_specs,
+    parse_horn_geometry,
+    parse_horn_project,
+)
 
 
 class TestParseDriverSpecs:
@@ -125,7 +129,8 @@ class TestParseHornGeometry:
             "throat_area: 0.01\n"
             "mouth_area: 0.05\n"
             "path_length: 1.0\n"
-            "rectangular_segments:\n" "  - [0.1, 0.05, 0.1, 0.06, 0.03]\n"
+            "rectangular_segments:\n"
+            "  - [0.1, 0.05, 0.1, 0.06, 0.03]\n"
         )
         horn = parse_horn_geometry(horn_file)
         assert horn.rectangular_segments[0] == (0.1, 0.05, 0.1, 0.06, 0.03)
@@ -137,7 +142,9 @@ class TestParseHornGeometry:
             "throat_area: 0.01\n"
             "mouth_area: 0.05\n"
             "path_length: 1.0\n"
-            "coordinates:\n" "  - [0.1, 0.2]\n" "  - [0.3, 0.4]\n"
+            "coordinates:\n"
+            "  - [0.1, 0.2]\n"
+            "  - [0.3, 0.4]\n"
         )
         horn = parse_horn_geometry(horn_file)
         assert horn.coordinates == [(0.1, 0.2), (0.3, 0.4)]
@@ -470,27 +477,29 @@ class TestDriverSpecsValidation:
     @pytest.mark.parametrize(
         "param,value",
         [
-            ("fs",   0.0),
-            ("fs",  -10.0),
-            ("qts",  0.0),
-            ("qts",  -0.5),
-            ("qes",  0.0),
-            ("qes",  -0.1),
-            ("qms",  0.0),
-            ("qms",  -1.0),
-            ("vas",  0.0),
-            ("vas",  -0.01),
-            ("re",   0.0),
-            ("re",  -5.0),
-            ("mms",  0.0),
-            ("mms",  -0.001),
-            ("cms",  0.0),
-            ("cms",  -1e-4),
-            ("sd",   0.0),
-            ("sd",   -1e-4),
+            ("fs", 0.0),
+            ("fs", -10.0),
+            ("qts", 0.0),
+            ("qts", -0.5),
+            ("qes", 0.0),
+            ("qes", -0.1),
+            ("qms", 0.0),
+            ("qms", -1.0),
+            ("vas", 0.0),
+            ("vas", -0.01),
+            ("re", 0.0),
+            ("re", -5.0),
+            ("mms", 0.0),
+            ("mms", -0.001),
+            ("cms", 0.0),
+            ("cms", -1e-4),
+            ("sd", 0.0),
+            ("sd", -1e-4),
         ],
     )
-    def test_positive_params_reject_zero_and_negative(self, tmp_path, param: str, value: float):
+    def test_positive_params_reject_zero_and_negative(
+        self, tmp_path, param: str, value: float
+    ):
         """Any strictly-positive T-S parameter must reject zero and negative values."""
         driver_file = tmp_path / "driver.yaml"
         # Rebuild YAML content, overriding only the target param
@@ -507,14 +516,16 @@ class TestDriverSpecsValidation:
     @pytest.mark.parametrize(
         "param,value",
         [
-            ("bl",      -0.1),
-            ("rms",     -0.01),
-            ("le",      -0.0001),
-            ("xmax",    -0.001),
+            ("bl", -0.1),
+            ("rms", -0.01),
+            ("le", -0.0001),
+            ("xmax", -0.001),
             ("voltage", -0.5),
         ],
     )
-    def test_non_negative_params_reject_negative(self, tmp_path, param: str, value: float):
+    def test_non_negative_params_reject_negative(
+        self, tmp_path, param: str, value: float
+    ):
         """Non-negative parameters must reject negative values."""
         driver_file = tmp_path / "driver.yaml"
         lines = []
@@ -527,11 +538,17 @@ class TestDriverSpecsValidation:
         with pytest.raises(ValueError, match=f"must be non-negative"):
             parse_driver_specs(driver_file)
 
-    @pytest.mark.parametrize("param", ["fs", "qts", "qes", "qms", "vas", "re", "mms", "cms", "sd"])
+    @pytest.mark.parametrize(
+        "param", ["fs", "qts", "qes", "qms", "vas", "re", "mms", "cms", "sd"]
+    )
     def test_missing_required_param_raises(self, tmp_path, param: str):
         """Omitting any required T-S parameter must raise a clear ValueError."""
         driver_file = tmp_path / "driver.yaml"
-        lines = [line for line in _VALID_DRIVER_YAML.splitlines() if not line.startswith(param + ":")]
+        lines = [
+            line
+            for line in _VALID_DRIVER_YAML.splitlines()
+            if not line.startswith(param + ":")
+        ]
         driver_file.write_text("\n".join(lines) + "\n")
         with pytest.raises(ValueError, match=f"'{param}' .* missing"):
             parse_driver_specs(driver_file)
@@ -608,18 +625,20 @@ class TestHornGeometryValidation:
     @pytest.mark.parametrize(
         "param,value",
         [
-            ("throat_area",  0.0),
+            ("throat_area", 0.0),
             ("throat_area", -0.001),
             ("throat_area", -1e-9),
-            ("mouth_area",   0.0),
-            ("mouth_area",  -0.01),
-            ("path_length",  0.0),
+            ("mouth_area", 0.0),
+            ("mouth_area", -0.01),
+            ("path_length", 0.0),
             ("path_length", -0.5),
-            ("n_segments",   0),
-            ("n_segments",  -1),
+            ("n_segments", 0),
+            ("n_segments", -1),
         ],
     )
-    def test_positive_fields_reject_zero_and_negative(self, tmp_path, param: str, value: float):
+    def test_positive_fields_reject_zero_and_negative(
+        self, tmp_path, param: str, value: float
+    ):
         """throat_area, mouth_area, path_length, n_segments must be > 0."""
         horn_file = tmp_path / "horn.yaml"
         # Build YAML dict with the target param overridden to a bad value
@@ -635,6 +654,7 @@ class TestHornGeometryValidation:
         }
         base[param] = value
         import yaml
+
         horn_file.write_text(yaml.safe_dump(base, default_flow_style=False))
         with pytest.raises(ValueError, match=f"Horn geometry '{param}' .* positive"):
             parse_horn_geometry(horn_file)
@@ -644,16 +664,18 @@ class TestHornGeometryValidation:
     @pytest.mark.parametrize(
         "param,value",
         [
-            ("vrc",   -0.001),
-            ("lrc",   -0.01),
-            ("vtc",   -1e-6),
+            ("vrc", -0.001),
+            ("lrc", -0.01),
+            ("vtc", -1e-6),
             ("fr_rc", -10.0),
             ("fr_tc", -5.0),
-            ("lpt",   -0.01),
-            ("ang",   -0.1),
+            ("lpt", -0.01),
+            ("ang", -0.1),
         ],
     )
-    def test_non_negative_fields_reject_negative(self, tmp_path, param: str, value: float):
+    def test_non_negative_fields_reject_negative(
+        self, tmp_path, param: str, value: float
+    ):
         """vrc, lrc, vtc, fr_rc, fr_tc, lpt, ang must be >= 0."""
         horn_file = tmp_path / "horn.yaml"
         base = {
@@ -671,8 +693,11 @@ class TestHornGeometryValidation:
         }
         base[param] = value
         import yaml
+
         horn_file.write_text(yaml.safe_dump(base, default_flow_style=False))
-        with pytest.raises(ValueError, match=f"Horn geometry '{param}' .* non-negative"):
+        with pytest.raises(
+            ValueError, match=f"Horn geometry '{param}' .* non-negative"
+        ):
             parse_horn_geometry(horn_file)
 
     # ── atc / ap1 must be positive when set ────────────────────────────────
@@ -698,11 +723,14 @@ class TestHornGeometryValidation:
 
     # ── wrong type tests ────────────────────────────────────────────────────
 
-    @pytest.mark.parametrize("param", ["throat_area", "mouth_area", "path_length", "vrc", "lrc"])
+    @pytest.mark.parametrize(
+        "param", ["throat_area", "mouth_area", "path_length", "vrc", "lrc"]
+    )
     def test_wrong_type_raises(self, tmp_path, param: str):
         """Non-numeric values for any numeric field must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
         import yaml
+
         base = {
             "throat_area": 0.01,
             "mouth_area": 0.05,
@@ -721,8 +749,8 @@ class TestHornGeometryValidation:
     def test_sections_zero_start_area_rejected(self, tmp_path):
         """sections[].start_area = 0 must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("start_area: 0.0044\n", "start_area: 0.0\n")
+        content = _VALID_SECTIONS_YAML.replace(
+            "start_area: 0.0044\n", "start_area: 0.0\n"
         )
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.start_area.*?positive"):
@@ -731,8 +759,8 @@ class TestHornGeometryValidation:
     def test_sections_negative_start_area_rejected(self, tmp_path):
         """sections[].start_area < 0 must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("start_area: 0.0044\n", "start_area: -0.001\n")
+        content = _VALID_SECTIONS_YAML.replace(
+            "start_area: 0.0044\n", "start_area: -0.001\n"
         )
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.start_area.*?positive"):
@@ -741,9 +769,7 @@ class TestHornGeometryValidation:
     def test_sections_zero_end_area_rejected(self, tmp_path):
         """sections[].end_area = 0 must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("end_area: 0.0044\n", "end_area: 0.0\n")
-        )
+        content = _VALID_SECTIONS_YAML.replace("end_area: 0.0044\n", "end_area: 0.0\n")
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.end_area.*?positive"):
             parse_horn_geometry(horn_file)
@@ -751,8 +777,8 @@ class TestHornGeometryValidation:
     def test_sections_negative_end_area_rejected(self, tmp_path):
         """sections[].end_area < 0 must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("end_area: 0.0044\n", "end_area: -0.001\n")
+        content = _VALID_SECTIONS_YAML.replace(
+            "end_area: 0.0044\n", "end_area: -0.001\n"
         )
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.end_area.*?positive"):
@@ -761,9 +787,7 @@ class TestHornGeometryValidation:
     def test_sections_zero_length_rejected(self, tmp_path):
         """sections[].length = 0 must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("length: 0.4\n", "length: 0.0\n")
-        )
+        content = _VALID_SECTIONS_YAML.replace("length: 0.4\n", "length: 0.0\n")
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.length.*?positive"):
             parse_horn_geometry(horn_file)
@@ -771,9 +795,7 @@ class TestHornGeometryValidation:
     def test_sections_negative_length_rejected(self, tmp_path):
         """sections[].length < 0 must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("length: 0.4\n", "length: -0.5\n")
-        )
+        content = _VALID_SECTIONS_YAML.replace("length: 0.4\n", "length: -0.5\n")
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.length.*?positive"):
             parse_horn_geometry(horn_file)
@@ -781,9 +803,7 @@ class TestHornGeometryValidation:
     def test_sections_missing_start_area_rejected(self, tmp_path):
         """sections[].start_area missing must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("    start_area: 0.0044\n", "")
-        )
+        content = _VALID_SECTIONS_YAML.replace("    start_area: 0.0044\n", "")
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.start_area.*?missing"):
             parse_horn_geometry(horn_file)
@@ -791,9 +811,7 @@ class TestHornGeometryValidation:
     def test_sections_missing_end_area_rejected(self, tmp_path):
         """sections[].end_area missing must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("    end_area: 0.0044\n", "")
-        )
+        content = _VALID_SECTIONS_YAML.replace("    end_area: 0.0044\n", "")
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.end_area.*?missing"):
             parse_horn_geometry(horn_file)
@@ -801,9 +819,7 @@ class TestHornGeometryValidation:
     def test_sections_missing_length_rejected(self, tmp_path):
         """sections[].length missing must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("    length: 0.4\n", "")
-        )
+        content = _VALID_SECTIONS_YAML.replace("    length: 0.4\n", "")
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.length.*?missing"):
             parse_horn_geometry(horn_file)
@@ -822,7 +838,7 @@ class TestHornGeometryValidation:
             "  - name: bad\n"
             "    profile_type: exponential\n"
             "    length: 0.8\n"
-            "    start_area: -0.001\n"   # negative — should be flagged as sections[1]
+            "    start_area: -0.001\n"  # negative — should be flagged as sections[1]
             "    end_area: 0.08\n"
         )
         horn_file.write_text(content)
@@ -832,9 +848,7 @@ class TestHornGeometryValidation:
     def test_sections_wrong_type_raises(self, tmp_path):
         """Non-numeric values in sections fields must raise ValueError."""
         horn_file = tmp_path / "horn.yaml"
-        content = (
-            _VALID_SECTIONS_YAML.replace("length: 0.4\n", "length: bad\n")
-        )
+        content = _VALID_SECTIONS_YAML.replace("length: 0.4\n", "length: bad\n")
         horn_file.write_text(content)
         with pytest.raises(ValueError, match=r"sections\[0\]\.length.*?number"):
             parse_horn_geometry(horn_file)
@@ -903,7 +917,9 @@ class TestMalformedYamlErrors:
         with pytest.raises(ValueError) as exc_info:
             parse_driver_specs(driver_file)
         assert "YAML parse error" in str(exc_info.value)
-        assert "ScannerError" not in str(exc_info.value)  # raw internal error must not leak
+        assert "ScannerError" not in str(
+            exc_info.value
+        )  # raw internal error must not leak
 
     def test_malformed_horn_yaml_gives_friendly_error(self, tmp_path):
         """Malformed YAML in a horn file should raise ValueError with a clear message."""
@@ -932,7 +948,7 @@ class TestMalformedYamlErrors:
             parse_horn_geometry(horn_file)
         err = str(exc_info.value)
         assert "YAML parse error" in err
-        assert ("indentation" in err.lower() or "special" in err.lower())
+        assert "indentation" in err.lower() or "special" in err.lower()
 
     def test_malformed_json_still_raises_FileNotFoundError(self, tmp_path):
         """JSON files with bad syntax raise the standard json.decode error (not YAML)."""
@@ -956,9 +972,12 @@ class TestMissingRequiredFields:
             "path_length",
         ],
     )
-    def test_missing_required_top_level_field_raises_clear_error(self, tmp_path, omitted: str):
+    def test_missing_required_top_level_field_raises_clear_error(
+        self, tmp_path, omitted: str
+    ):
         """Omitting throat_area, mouth_area, or path_length (non-sections format) must raise
-        a ValueError that names the missing field and suggests using the sections format."""
+        a ValueError that names the missing field and suggests using the sections format.
+        """
         horn_file = tmp_path / "horn.yaml"
         content = {
             "throat_area": 0.01,
@@ -968,6 +987,7 @@ class TestMissingRequiredFields:
         }
         del content[omitted]
         import yaml
+
         horn_file.write_text(yaml.safe_dump(content))
         with pytest.raises(ValueError, match=f"'{omitted}' .* required .* missing"):
             parse_horn_geometry(horn_file)
@@ -985,6 +1005,7 @@ class TestMissingRequiredFields:
         NOT required at the top level — sections define the geometry instead."""
         horn_file = tmp_path / "horn.yaml"
         import yaml
+
         content = {
             "enclosure_type": "BLH",
             "sections": [
@@ -1022,6 +1043,7 @@ class TestMissingRequiredFields:
             }
             del content[field]
             import yaml
+
             horn_file.write_text(yaml.safe_dump(content))
             with pytest.raises(ValueError, match=f"'{field}' .* required"):
                 parse_horn_geometry(horn_file)
@@ -1055,6 +1077,7 @@ class TestMissingRequiredFields:
         pass — it should cause a clear ValueError, not a confusing KeyError."""
         horn_file = tmp_path / "horn.yaml"
         import yaml
+
         content = {
             "throat_area": 0.01,
             "mouth_area": 0.05,
@@ -1071,7 +1094,6 @@ class TestMissingRequiredFields:
         assert "unknown_geometry_field" in err or "Failed to construct" in err
 
 
-
 class TestStringPathSupport:
     """Tests for accepting str arguments (not just Path) in parse functions.
 
@@ -1085,7 +1107,7 @@ class TestStringPathSupport:
         assert driver.fs == pytest.approx(49.6)
 
     def test_parse_horn_geometry_accepts_string_path(self):
-        horn = parse_horn_geometry("source/fsx.yaml")
+        horn = parse_horn_geometry("examples/geometry/fsx.yaml")
         assert isinstance(horn, HornGeometry)
         assert horn.throat_area > 0
 
@@ -1099,7 +1121,7 @@ class TestStringPathSupport:
         assert driver.fs == pytest.approx(49.6)
 
     def test_parse_horn_geometry_still_accepts_path(self):
-        horn = parse_horn_geometry(Path("source/fsx.yaml"))
+        horn = parse_horn_geometry(Path("examples/geometry/fsx.yaml"))
         assert horn.throat_area > 0
 
     def test_parse_horn_project_still_accepts_path(self):

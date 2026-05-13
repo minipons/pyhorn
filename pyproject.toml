@@ -56,3 +56,9 @@ exclude = ["tests", "tests.*", "pyhorn_core.pyhorn_physics", "pyhorn_core.egg-in
 [tool.pytest.ini_options]
 testpaths = ["pyhorn_core/tests", "pyhorn_cli/tests", "tests/benchmarks"]
 addopts = "-q --tb=short"
+
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]

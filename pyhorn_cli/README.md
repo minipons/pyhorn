@@ -1,6 +1,6 @@
 # pyhorn_cli — Acoustic Horn Simulator CLI
 
-CLI wrapper for `pyhorn_core` — Typer-based command-line interface for simulation, comparison, synthesis, and registry management.
+CLI wrapper for `pyhorn_core` — Typer-based command-line interface for simulation, comparison and synthesis management.
 
 ## Installation
 
@@ -11,15 +11,14 @@ pyhorn --help          # or: python -m pyhorn_cli.main --help
 
 ## Top-Level Commands
 
-pyhorn exposes five top-level commands:
+pyhorn exposes four top-level commands:
 
-| Command | Description |
-|---------|-------------|
-| `pyhorn calculate` | Horn simulation commands (subcommands below) |
-| `pyhorn segment-wizard` | Geometry calculator for a single catenoidal horn segment |
+| Command                 | Description                                                      |
+| ----------------------- | ---------------------------------------------------------------- |
+| `pyhorn calculate`      | Horn simulation commands (subcommands below)                     |
+| `pyhorn segment-wizard` | Geometry calculator for a single catenoidal horn segment         |
 | `pyhorn chamber-wizard` | Estimate Vrc, Lrc, Vtc, Atc, Ap1, Lpt from driver T-S parameters |
-| `pyhorn resize-wizard` | Scale a horn geometry proportionally (Hornresp page 68) |
-| `pyhorn wavefront-edit` | Interactive horn-wall vertex editor using matplotlib |
+| `pyhorn resize-wizard`  | Scale a horn geometry proportionally (Hornresp page 68)          |
 
 ---
 
@@ -32,7 +31,7 @@ Simulate the acoustic response of a horn enclosure and save results.
 
 ```bash
 pyhorn calculate calculate -d drivers/FE166NV2.yaml -p projects/hiro.yaml
-pyhorn calculate calculate -d drivers/FE166NV2.yaml -h source/bk16.yaml
+pyhorn calculate calculate -d drivers/FE166NV2.yaml -h examples/geometry/bk16.yaml
 ```
 
 Key options:
@@ -49,7 +48,6 @@ Key options:
 - `--polar-freq` — polar directivity frequency (Hz)
 - `--polar-angles` — comma-separated off-axis angles (e.g. `0,15,30,45,60,75,90`)
 - `--notch-filter` — suppress TMM artifact notches
-- `--wavefront` / `--wavefront-freq` — run 2D wavefront simulation
 - `--distortion` — compute 2nd-tone distortion (single-segment horns)
 - `--voice-coil-temp` — voice coil temperature for thermal model
 - `--fdd` / `--fdd-fc` / `--fdd-dmax` — frequency-dependent directivity mode
@@ -59,7 +57,7 @@ Key options:
 Compare SPL responses of multiple horn designs on a single plot.
 
 ```bash
-pyhorn calculate compare source/bk16.yaml source/fsx.yaml -d drivers/FE166NV2.yaml
+pyhorn calculate compare examples/geometry/bk16.yaml examples/geometry/fsx.yaml -d drivers/FE166NV2.yaml
 ```
 
 Key options:
@@ -110,7 +108,7 @@ Computes minimum-length profile between throat chamber opening and horn throat. 
 Generate pyhorn segments automatically from an Onshape 2D air volume JSON export.
 
 ```bash
-pyhorn calculate auto-segment -i source/bk16.json -o source/bk16_imported.yaml --n-segments 20
+pyhorn calculate auto-segment -i examples/geometry/bk16.json -o examples/geometry/bk16_imported.yaml --n-segments 20
 ```
 
 Key options:
@@ -126,7 +124,7 @@ Key options:
 Diagnose SPL response for artifacts and standing-wave patterns.
 
 ```bash
-pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h source/hiro.yaml
+pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hiro.yaml
 ```
 
 Analyses a frequency sub-range for: smoothness score, standing-wave analysis (path-length comb filtering), and artifact flagging.
@@ -146,15 +144,6 @@ Key options:
 - `--profiles` — comma-separated profile types (default: all four)
 - `--max-iter` — max iterations per profile (default: 150)
 - `--top-n` — number of top designs to output (default: 3)
-
-### `pyhorn calculate fold-optimized`
-Create a folded horn layout from an optimized horn YAML.
-
-```bash
-pyhorn calculate fold-optimized outputs/optimize/best.yaml --enclosure-depth 0.6 --enclosure-height 2.4
-```
-
----
 
 ## Wizard Commands (Top-Level Shortcuts)
 
@@ -177,25 +166,23 @@ These match `pyhorn calculate segment-wizard`, `pyhorn calculate chamber-wizard`
 pyhorn calculate calculate -d drivers/FE166NV2.yaml -p projects/hiro.yaml
 
 # Compare multiple horns
-pyhorn calculate compare source/bk16.yaml source/fsx.yaml -d drivers/FE166NV2.yaml
+pyhorn calculate compare examples/geometry/bk16.yaml examples/geometry/fsx.yaml -d drivers/FE166NV2.yaml
 
 # Derive T-S parameters
 pyhorn calculate derive-ts --fs 53 --qes 0.29 --qms 5.9 --vas 17.5 --re 8 --sd 124
 
 # Auto-segment from Onshape export
-pyhorn calculate auto-segment -i source/bk16.json -o source/bk16_imported.yaml --n-segments 20
+pyhorn calculate auto-segment -i examples/geometry/bk16.json -o examples/geometry/bk16_imported.yaml --n-segments 20
 
 # Compute throat adapter
 pyhorn calculate throat-adapter --d1 50 --d2 100 --a1 30 --a2 30 --type conical
 
 # Diagnose SPL artifacts
-pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h source/hiro.yaml
+pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hiro.yaml
 
 # Optimize geometry for a driver
 pyhorn calculate optimize -d drivers/FE166NV2.yaml --fmin 80 --enclosure BLH
 
-# Interactive wavefront editor
-pyhorn wavefront-edit --geometry source/hiro.yaml --output source/hiro_edited.yaml
 ```
 
 ## Dependencies

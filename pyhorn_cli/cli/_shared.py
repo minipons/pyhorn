@@ -7,15 +7,6 @@ import numpy as np
 from scipy.special import j1
 
 from pyhorn_core.solver.models import RHO, C
-# pyhorn_fold is a separate package — stub out if not installed
-try:
-    from pyhorn_fold import (
-        throat_chamber_side_length as _throat_chamber_side_length,
-    )
-except ImportError:
-    def _throat_chamber_side_length(*args, **kwargs):
-        return None
-
 
 # Default off-axis angles for piston directivity computation
 DEFAULT_OFF_AXIS_ANGLES = [0, 15, 30, 45, 60, 75, 90]
@@ -39,7 +30,7 @@ def _piston_directivity_db(angle_deg: float, ka: float) -> float:
     j1_val = j1(x)
     denom = x
     sinc = 2.0 * j1_val / denom
-    D = sinc ** 2
+    D = sinc**2
     return 10.0 * math.log10(D + 1e-12)
 
 
@@ -76,7 +67,9 @@ def _print_radiation_summary(freqs: np.ndarray, spl: np.ndarray, mouth_area: flo
     ka = k * a
 
     typer.echo("\nRadiation Summary (piston model approximation)")
-    typer.echo(f"{'Frequency':<12} {'On-axis SPL':<14} {'-6dB Beamwidth':<18} {'Directivity Index'}")
+    typer.echo(
+        f"{'Frequency':<12} {'On-axis SPL':<14} {'-6dB Beamwidth':<18} {'Directivity Index'}"
+    )
     typer.echo("-" * 60)
 
     for f_preset in _PRESET_SUMMARY_FREQS:
@@ -92,7 +85,7 @@ def _print_radiation_summary(freqs: np.ndarray, spl: np.ndarray, mouth_area: flo
         x_safe = np.where(x_arr < 0.05, 0.05, x_arr)
         j1_arr = j1(x_safe)
         sinc_arr = 2.0 * j1_arr / (x_safe + 1e-12)
-        D_arr = np.where(ka_val < 0.05, 1.0, sinc_arr ** 2)
+        D_arr = np.where(ka_val < 0.05, 1.0, sinc_arr**2)
         D_avg = np.trapezoid(D_arr * sin_theta, theta_arr)
         DI = 10.0 * math.log10(1.0 / D_avg) if D_avg > 0 else 0.0
 
@@ -120,11 +113,15 @@ def _print_radiation_summary(freqs: np.ndarray, spl: np.ndarray, mouth_area: flo
 def _folded_throat_chamber_side(horn) -> Optional[float]:
     if horn.width is None or horn.width <= 0 or horn.vtc <= 0:
         return None
-    return _throat_chamber_side_length(horn, horn.width)
+    chamber_volume = horn.vtc + 1e-3
+    if chamber_volume <= 0.0:
+        return None
+    return math.sqrt(chamber_volume / horn.width)
 
 
 def _horn_geometry_to_dict(horn) -> dict:
     """Serialize a HornGeometry to a plain dict for YAML output."""
+
     def _round_list(lst, decimals=4):
         return [round(v, decimals) for v in lst] if lst else []
 
@@ -189,8 +186,21 @@ def _horn_geometry_to_dict(horn) -> dict:
 def _driver_specs_to_dict(driver) -> dict:
     """Serialize a DriverSpecs to a plain dict for YAML output."""
     fields = [
-        "fs", "qts", "qes", "qms", "vas", "re", "bl", "mms", "cms",
-        "rms", "sd", "voltage", "le", "xmax", "alpha_re",
+        "fs",
+        "qts",
+        "qes",
+        "qms",
+        "vas",
+        "re",
+        "bl",
+        "mms",
+        "cms",
+        "rms",
+        "sd",
+        "voltage",
+        "le",
+        "xmax",
+        "alpha_re",
     ]
     data = {}
     for f in fields:

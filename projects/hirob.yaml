@@ -10,7 +10,7 @@
 #   Cabinet: H780×W288×D385 mm (fits 2400×1200 MDF board)
 #   Internal horn width: 224 mm
 #
-# Hornresp reference: hornresp_spl_hirob.csv
+# Hornresp reference: tests/benchmarks/hornresp/hirob/reference/hornresp_spl.csv
 
 name: "HiroB"
 enclosure_type: BLH
@@ -75,7 +75,7 @@ voltage: 2.83
 # ── Hornresp calibration ────────────────────────────────────────────────
 # sensitivity_db: [[freq, delta_db], ...]
 # CRIT-3 (May 5 2026): pyhorn acoustic power systematically exceeds Hornresp.
-# Calibrated against hornresp_spl_hirob.csv. Regenerate if physics changes.
+# Calibrated against tests/benchmarks/hornresp/hirob/reference/hornresp_spl.csv. Regenerate if physics changes.
 sensitivity_db:
   - [20,   -14.0]
   - [50,    -4.0]
@@ -92,4 +92,4 @@ notes: |
   Rear chamber: Vrc=4.7 L, Lrc=100 mm, lined sealed (4 cm mineral wool).
   Direct driver-to-horn coupling (no throat chamber).
   Cabinet: H780×W288×D385 mm.
-  Hornresp reference: hornresp_spl_hirob.csv
+  Hornresp reference: tests/benchmarks/hornresp/hirob/reference/hornresp_spl.csv

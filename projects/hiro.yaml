@@ -1,2 +1,2 @@
 name: "Hiro"
-geometry_path: ../source/hiro.yaml
+geometry_path: ../examples/geometry/hiro.yaml
