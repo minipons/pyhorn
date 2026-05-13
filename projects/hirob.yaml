@@ -33,7 +33,7 @@ rear_chamber:
   vrc: 0.00470    # m³ — 4.7 litres
   lrc: 0.100      # m — 100 mm acoustic length
   fr_rc: 2000     # flow resistivity (Rayls/m) — mineral wool
-  chamber_type: sealed   # sealed rear chamber with damping material
+  chamber_type: coupling   # pure-stiffness coupling chamber (correct for BLH)
 
 # ── Throat chamber ─────────────────────────────────────────────────────
 # No throat chamber in HiroB — direct driver-to-horn coupling

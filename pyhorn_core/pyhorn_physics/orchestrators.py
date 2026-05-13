@@ -92,6 +92,7 @@ from typing import List, Tuple, Optional, TYPE_CHECKING
 
 import numpy as np
 from scipy.special import jv
+from scipy.interpolate import interp1d as _scipy_interp1d
 
 # ─── Config types ──────────────────────────────────────────────────────────────
 if TYPE_CHECKING:
@@ -217,6 +218,22 @@ class SimulationResult:
 
 def _pressure_to_spl(pressure: np.ndarray) -> np.ndarray:
     return 20 * np.log10(np.abs(pressure) / 2e-5 + 1e-12)
+
+
+def _interp1d_scalar(x, y, x_out):
+    """Interpolate a [[freq_hz, value], ...] table to scalar values at x_out.
+
+    Uses linear interpolation with extrapolation for out-of-range values.
+    x_out can be a scalar or array; output shape matches x_out.
+    """
+    x_arr = np.atleast_1d(np.asarray(x, dtype=float))
+    y_arr = np.atleast_1d(np.asarray(y, dtype=float))
+    f = _scipy_interp1d(x_arr, y_arr, kind="linear", fill_value="extrapolate", assume_sorted=True)
+    result = f(np.atleast_1d(np.asarray(x_out, dtype=float)))
+    # Preserve scalar-in → scalar-out behaviour
+    if np.ndim(result) == 1 and result.shape[0] == 1:
+        return result[0]
+    return result
 
 
 def acoustic_power_to_spl_dB_W_m(
@@ -618,9 +635,7 @@ def horn_response_tapped(
         else:
             efficiency[i] = 0.0
 
-        p_complex = Z_rad_mouth_cplx * U_mouth
-        phase[i] = np.angle(p_complex)
-        group_delay[i] = -np.gradient(phase, freqs)[i] if i > 0 else 0.0
+        phase[i] = np.angle(Z_in_front)
 
         for j, theta_deg in enumerate(off_axis_angles):
             theta = np.radians(theta_deg)
@@ -636,6 +651,15 @@ def horn_response_tapped(
             off_axis_spl_arr[i, j] = SPL_ref + 10.0 * np.log10(max(dir_factor, 1e-12))
 
     spl_out = np.array(spl, dtype=float)
+
+    # Compute group delay from throat acoustic impedance phase (matches Hornresp)
+    # -d(phase)/d(omega) in seconds, converted to ms
+    phase = np.unwrap(phase)
+    omega_arr = 2.0 * np.pi * freqs
+    if len(freqs) >= 2:
+        group_delay = -np.gradient(phase, omega_arr) * 1000.0
+    else:
+        group_delay = np.zeros_like(freqs, dtype=float)
 
     if direction_index_arr is not None:
         for j in range(n_angles):
@@ -1161,6 +1185,45 @@ def _horn_response_impl(
         segments, bends, bends_ext, bend_positions, n_throat=20, min_len_merge=0.002
     )
 
+    # ── TMM discretisation adequacy check ────────────────────────────────────
+    # When kL_per_segment >= π/2 at the maximum frequency, the segment discretisation
+    # is too coarse and causes standing-wave artifacts in the transfer matrix cascade.
+    # Each tube segment must be shorter than a quarter-wavelength at the frequency of
+    # interest to avoid half-wave resonance within a single segment.
+    #
+    # Minimum n for a path of length L to be valid at frequency f_max:
+    #   n_min = ceil(2 * f_max * L / c)    [2 because kL = 2πfL/c, require kL < π/2 → fL < c/4]
+    # Equivalently: n_min = ceil(4 * f_max * L / c) using the kL < π/4 form.
+    # Using kL < π/2 (quarter-wave): n_min = ceil(2 * f_max * L / c).
+    #
+    # We check at f_max = max(freqs) or 20 kHz if the sweep goes that high.
+    # Reference: pyhorn issue #TMM, Benade (1968) on horn discretisation.
+    _f_max_check = float(np.max(freqs)) if len(freqs) > 0 else 20000.0
+    if _f_max_check > 0 and len(segments) > 0:
+        _seg_len = float(np.mean([s[0] for s in segments]))
+        _kL_per_seg = (2.0 * np.pi * _f_max_check / C) * _seg_len
+        if _kL_per_seg >= np.pi / 2.0:
+            _n_current = len(segments)
+            _n_needed = int(np.ceil(2.0 * _f_max_check * horn.path_length / C))
+            import warnings
+            _f_spike = _f_max_check * np.pi / _kL_per_seg
+            warnings.warn(
+                f"[pyhorn/TMM] n_segments={_n_current} is too small for f_max={_f_max_check:.0f} Hz. "
+                f"kL/segment={_kL_per_seg:.2f} rad (>= π/2). "
+                f"Minimum required: n_segments >= {_n_needed} to avoid half-wave resonance artifacts. "
+                f"Expected resonance spike near f ≈ {_f_spike:.0f} Hz. "
+                f"Auto-correcting to n_segments={max(_n_needed, 200)}."
+            )
+            _n_safe = max(_n_needed, 200)
+            segments = discretise_profile(
+                horn.profile_type,
+                horn.throat_area,
+                horn.mouth_area,
+                horn.path_length,
+                _n_safe,
+                horn.hyperbolic_t,
+            )
+
     mouth_w = None
     mouth_h = None
     if horn.rectangular_segments:
@@ -1193,8 +1256,15 @@ def _horn_response_impl(
     particle_velocity_port_out = np.zeros(len(freqs))
     acoustic_power_out = np.zeros(len(freqs))
     spl_power_based_out = np.zeros(len(freqs))
-    # Pre-compute frequency-dependent sensitivity_db (interpolates if needed)
-    sensitivity_at_freqs = driver.get_sensitivity_db(freqs)
+    # Pre-compute frequency-dependent sensitivity_db for power-based SPL calibration.
+    # Prefer horn.sensitivity_db (project-level calibration from hirob.yaml's
+    # sensitivity_db table [[freq, dB], ...]) over driver.sensitivity_db.
+    horn_sd = getattr(horn, "sensitivity_db", None)
+    if horn_sd is not None:
+        sd_table = np.atleast_2d(horn_sd) if not isinstance(horn_sd, np.ndarray) or horn_sd.ndim != 2 else horn_sd
+        sensitivity_at_freqs = _interp1d_scalar(sd_table[:, 0], sd_table[:, 1], freqs)
+    else:
+        sensitivity_at_freqs = driver.get_sensitivity_db(freqs)
 
     for idx, f in enumerate(freqs):
         w = 2 * np.pi * f

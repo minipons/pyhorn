@@ -179,6 +179,9 @@ class HornGeometry:
 
     # Slavic rear chamber (aperiodic / slave bass)
     slavbas: Optional["SlavicBox"] = None  # Set for Slavic rear chamber
+    # Sensitivity calibration table for dB/W/m SPL: [[freq_hz, delta_db], ...].
+    # Set in projects/*.yaml.  Used by orchestrators._horn_response_impl.
+    sensitivity_db: Optional[np.ndarray] = None
 
     # Throat chamber
     vtc: float = 0.0  # Throat chamber volume (m³)
@@ -195,7 +198,7 @@ class HornGeometry:
     # Expansion Profile
     profile_type: Optional[str] = None  # 'Conical' or 'Exponential'
     hyperbolic_t: float = 1.0  # Hornresp/Salmon hyperbolic family parameter T
-    n_segments: int = 100  # Discretisation segments
+    n_segments: int = 100  # Discretisation segments — auto-corrected to >= 200 in orchestrator if kL/seg >= π/2
 
     # Complex Folded Horn support
     width: Optional[float] = None  # Internal width (m) for constant-width folded horns
@@ -754,7 +757,7 @@ class TappedHornGeometry:
     # Mouth radiation angle (steradians)
     ang: float = 6.283185307  # 2π = half-space
 
-    n_segments: int = 100  # Discretisation per section
+    n_segments: int = 100  # Discretisation per section — auto-corrected to >= 200 in orchestrator if kL/seg >= π/2
 
     def front_path_length(self) -> float:
         """Total acoustic path length from tap point to mouth."""
@@ -881,3 +884,6 @@ class HornProject:
     passive_radiator: Optional["PassiveRadiator"] = None
     # Slavic rear chamber (aperiodic / slave bass)
     slavbas: Optional["SlavicBox"] = None
+    # Sensitivity calibration table for dB/W/m SPL: [[freq_hz, delta_db], ...].
+    # Set in projects/*.yaml.  Used by orchestrators._horn_response_impl.
+    sensitivity_db: Optional[np.ndarray] = None
