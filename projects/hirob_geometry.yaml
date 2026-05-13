@@ -1,8 +1,0 @@
-# HiroB horn geometry — single hyperbolic section
-sections:
-  - name: main_horn
-    profile_type: hyperbolic
-    length: 1.430
-    start_area: 0.0080    # 80 cm² throat
-    end_area: 0.0800     # 800 cm² mouth
-    hyperbolic_t: 0.70

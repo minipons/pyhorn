@@ -57,6 +57,7 @@ runner all route through these functions. It must not import from
 `pyhorn_core/solver/` (no circular dependencies).
 """
 
+import csv
 import json
 import yaml
 from pathlib import Path
@@ -255,6 +256,29 @@ def parse_driver_specs(filepath: Path | str) -> DriverSpecs:
             # Convert list of [freq, value] pairs to numpy (N, 2) array for interpolation
             data["sensitivity_db"] = np.array(sd, dtype=float)
         # else: scalar float, pass through directly
+    # Handle measured spl_response: either a CSV path (relative to driver YAML)
+    # or an inline list of [freq, db] pairs.
+    if "spl_response" in data:
+        sr = data["spl_response"]
+        if isinstance(sr, str):
+            csv_path = (filepath.parent / sr).resolve() if not Path(sr).is_absolute() else Path(sr)
+            if not csv_path.exists():
+                raise FileNotFoundError(
+                    f"spl_response CSV not found: {csv_path}\n"
+                    f"  Driver YAML: {filepath}\n"
+                    f"  Check the 'spl_response' path is correct."
+                )
+            rows = []
+            with open(csv_path) as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                for row in reader:
+                    if not row or row[0].startswith("#"):
+                        continue
+                    rows.append((float(row[0]), float(row[1])))
+            data["spl_response"] = np.array(rows, dtype=float)
+        elif isinstance(sr, list):
+            data["spl_response"] = np.array(sr, dtype=float)
     return DriverSpecs(**data)
 
 

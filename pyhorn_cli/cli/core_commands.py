@@ -1012,8 +1012,11 @@ def calculate(
     segments = result.segments
     if segments:
         total_len = sum(s[0] for s in segments)
-        throat_area = segments[0][1]
-        mouth_area = segments[-1][1]
+        # Boundary areas: prefer the user-specified throat/mouth on the geometry.
+        # segments[0][1] / segments[-1][1] are segment-AVERAGED areas — for a
+        # monotonic profile they sit slightly off the true endpoints.
+        throat_area = horn.throat_area if horn.throat_area > 0 else segments[0][1]
+        mouth_area = horn.mouth_area if horn.mouth_area > 0 else segments[-1][1]
 
         # Approximate internal volume in Liters
         volume_m3 = sum(

@@ -67,6 +67,14 @@ class DriverSpecs:
     # calibrate pyhorn's absolute HF level to match Hornresp's dB/W/m reference.
     # Can also be set per-driver in the YAML: sensitivity_db: -15.0
     sensitivity_db: float = 0.0  # dB offset applied to acoustic-power-based SPL (scalar or array)
+    # Measured free-air SPL response of the bare driver (1 W / 1 m, baffled).
+    # When set, the orchestrator overrides the TS-model-predicted direct-cone
+    # radiation with this curve — captures cone breakup and motor non-linearities
+    # that the lumped TS model cannot predict (esp. above ~2 kHz).
+    # Two formats accepted:
+    #   - path to CSV with columns "Frequency_Hz, SPL_dB" (resolved relative to driver YAML)
+    #   - inline (N, 2) numpy array of [freq_hz, spl_db] pairs
+    spl_response: Optional[Any] = None
 
     def get_sensitivity_db(self, freqs: np.ndarray) -> np.ndarray:
         """
@@ -89,6 +97,24 @@ class DriverSpecs:
             return np.asarray(sd)
         # Scalar: broadcast
         return np.full_like(freqs, sd, dtype=float)
+
+    def get_spl_response(self, freqs: np.ndarray) -> Optional[np.ndarray]:
+        """Return measured driver SPL response at the given frequencies, or None.
+
+        Linearly interpolates the (N, 2) ``spl_response`` table in log-frequency
+        space.  Extrapolates by holding the endpoint value.
+        """
+        sr = self.spl_response
+        if sr is None:
+            return None
+        arr = np.asarray(sr, dtype=float)
+        if arr.ndim != 2 or arr.shape[1] != 2:
+            return None
+        table_f = arr[:, 0]
+        table_db = arr[:, 1]
+        log_f = np.log10(np.maximum(freqs, 1e-6))
+        log_tf = np.log10(np.maximum(table_f, 1e-6))
+        return np.interp(log_f, log_tf, table_db, left=table_db[0], right=table_db[-1])
 
     @property
     def reference_spl(self) -> float:

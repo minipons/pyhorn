@@ -1701,6 +1701,26 @@ def _horn_response_impl(
         else:
             spl_power_based_out[idx] = 0.0
 
+    # ── Measured driver SPL override ───────────────────────────────────────
+    # Scale the direct-cone pressure to match the driver's measured SPL curve
+    # (captures cone breakup that the lumped TS model cannot predict).
+    # Phase is preserved from the model.  Total pressure and pressure-based
+    # SPL are recomputed.  The "Total" displayed in the response plot is then
+    # power-summed below from this corrected direct + the calibrated dB/W/m
+    # horn-side level (see "Composite Total" block).
+    if direct_pressure_out is not None:
+        measured_db = driver.get_spl_response(freqs)
+        if measured_db is not None:
+            current_db = _pressure_to_spl(direct_pressure_out)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                scale = np.power(10.0, (measured_db - current_db) / 20.0)
+            direct_pressure_out = direct_pressure_out * scale
+            if horn_pressure_out is not None:
+                total_pressure_out = direct_pressure_out + horn_pressure_out
+            else:
+                total_pressure_out = direct_pressure_out
+            spl_out = _pressure_to_spl(total_pressure_out)
+
     phase = np.unwrap(np.angle(total_pressure_out))
     omega_arr = 2 * np.pi * freqs
     if len(freqs) >= 2:
