@@ -170,6 +170,25 @@ def _circular_piston_radiation_impedance(
     if ka < 1e-6:
         return 0.0 + 0.0j
 
+    # =========================================================================
+    # HISTORICAL BUG NOTE (Fixed May 2026):
+    # Previous versions of this function erroneously used the unbaffled pipe
+    # limit (ka^4 / 4) for the ka < 0.1 branch, while attempting to use a
+    # squared Bessel function (1 - J1^2) for the high-ka branch. 
+    # This caused a massive mathematical discontinuity at exactly ka = 0.1, 
+    # where R_rad artificially jumped by a factor of ~30,000x. When this 
+    # discontinuity intersected with horn anti-resonances, it caused the real 
+    # part of the throat impedance (Re[Z_throat]) to artificially explode to 
+    # thousands of Ohms, corrupting the final system SPL output with severe 
+    # jagged spikes.
+    # 
+    # The current implementation correctly uses the exact analytical solutions
+    # (Lord Rayleigh's integrals) for a rigid circular piston in an infinite 
+    # baffle across all ka. The ka < 0.1 branch uses the exact Taylor series
+    # limits (ka^2 / 2) to prevent precision loss without introducing any
+    # discontinuities.
+    # =========================================================================
+
     if ka < 0.1:
         R_rad = Zc * (ka ** 2) / 2.0
         X_rad = Zc * 8.0 * ka / (3.0 * np.pi)
