@@ -486,6 +486,14 @@ def auto_segment(
     try:
         from pyhorn_core.solver.medial_axis import generate_auto_segments
 
+        if generate_auto_segments is None:
+            typer.secho(
+                "The 'pyhorn_segment' package is required for auto-segmentation but is not installed. "
+                "Install it with: pip install pyhorn_segment",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+
         valid_formats = {"sections", "legacy"}
         if output_format is None:
             output_format = "legacy" if preserve_breaks else "sections"

@@ -14,9 +14,9 @@ import yaml as _yaml
 
 # The pyhorn CLI is installed as a standalone entry-point script (not as a
 # module). Use it directly so we pick up the correct Python interpreter.
-PYHORN_CLI = "/opt/homebrew/bin/pyhorn"
+PYHORN_CLI = "/opt/homebrew/anaconda3/bin/pyhorn"
 
-WORKDIR = Path("/Users/guillaume/pyhorn")
+WORKDIR = Path("/Users/guillaume/P/pyhorn")
 
 
 class TestThroatAdapterRoundtrip:

@@ -199,7 +199,7 @@ def _converge(
         mean_error=float(np.mean(err)),
         rms_error=float(np.sqrt(np.mean(err**2))),
         worst_freq=float(py_freq[valid][worst_idx]),
-        passed=float(np.max(np.abs(err)) <= atol),
+        passed=bool(np.max(np.abs(err)) <= atol),
     )
 
 

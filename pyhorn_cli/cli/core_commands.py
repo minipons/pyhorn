@@ -309,79 +309,6 @@ def calculate(
     recommended way to run simulations.  Alternatively, use --horn (-h) to point
     directly at a geometry YAML.
     """
-    # ── 0. Filter Schematic (no horn config needed) ───────────────────────────
-    if filter_schematic:
-        from pyhorn_core.solver.filter_schematic import (
-            compute_filter_schematic,
-            FilterBand,
-        )
-
-        if filter_yaml is not None:
-            try:
-                with open(filter_yaml) as fh:
-                    filter_data = yaml.safe_load(fh)
-                band_list = (
-                    filter_data.get("filter_bands", [])
-                    if isinstance(filter_data, dict)
-                    else []
-                )
-                bands: list[FilterBand] = [
-                    FilterBand(
-                        type=b.get("type", "peakingEQ"),
-                        frequency=float(b.get("frequency", 1000)),
-                        q=float(b.get("q", 1.0)),
-                        gain_db=float(b.get("gain_db", 0.0)),
-                        order=int(b.get("order", 2)),
-                        enabled=b.get("enabled", True),
-                    )
-                    for b in band_list
-                ]
-            except Exception as exc:
-                typer.secho(f"Error reading filter YAML: {exc}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
-        elif filter_preset is not None:
-            from pyhorn_ui.server import _DEFAULT_BANDS
-
-            preset_bands = _DEFAULT_BANDS.get(filter_preset)
-            if preset_bands is None:
-                typer.secho(
-                    f"Unknown filter preset '{filter_preset}'. "
-                    f"Available: {', '.join(_DEFAULT_BANDS.keys())}",
-                    fg=typer.colors.RED,
-                )
-                raise typer.Exit(code=1)
-            bands = [
-                FilterBand(
-                    type=b.type,
-                    frequency=b.frequency,
-                    q=b.q,
-                    gain_db=b.gain_db,
-                    order=b.order,
-                    enabled=b.enabled,
-                )
-                for b in preset_bands
-            ]
-        else:
-            # Default: Le Cleach HP preset
-            from pyhorn_ui.server import _DEFAULT_BANDS
-
-            preset_bands = _DEFAULT_BANDS.get(
-                "Le Cleach HP", _DEFAULT_BANDS.get("Le Cléac'h HP", [])
-            )
-            bands = [
-                FilterBand(
-                    type=b.type,
-                    frequency=b.frequency,
-                    q=b.q,
-                    gain_db=b.gain_db,
-                    order=b.order,
-                    enabled=b.enabled,
-                )
-                for b in preset_bands
-            ]
-
-        typer.echo(compute_filter_schematic(bands))
-        raise typer.Exit(code=0)
 
     # ── Benchmark mode ─────────────────────────────────────────────────────────
     if benchmark or benchmark_project is not None:
@@ -639,55 +566,6 @@ def calculate(
             else np.zeros_like(result.spl)
         )
     responses[gd_label] = gd_vals
-
-    # ── Apply filter bands from YAML (post-processing) ─────────────────────────
-    _filter_yaml_path: Optional[Path] = filter_path or filter_yaml
-    if _filter_yaml_path is not None:
-        from pyhorn_core.solver.filter_schematic import FilterBand
-        from pyhorn_ui.server import _apply_filter_bands
-
-        try:
-            with open(_filter_yaml_path) as fh:
-                filter_data = yaml.safe_load(fh)
-            band_list = (
-                filter_data.get("filter_bands", [])
-                if isinstance(filter_data, dict)
-                else []
-            )
-            bands: list[FilterBand] = [
-                FilterBand(
-                    type=b.get("type", "peakingEQ"),
-                    frequency=float(b.get("frequency", 1000)),
-                    q=float(b.get("q", 1.0)),
-                    gain_db=float(b.get("gain_db", 0.0)),
-                    order=int(b.get("order", 2)),
-                    enabled=b.get("enabled", True),
-                )
-                for b in band_list
-            ]
-        except Exception as exc:
-            typer.secho(f"Error reading filter YAML: {exc}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        if bands:
-            filt_spl, filt_imp, filt_phase, filt_mag_db = _apply_filter_bands(
-                freqs,
-                np.array(primary_spl),
-                np.abs(result.impedance),
-                (
-                    np.degrees(result.phase)
-                    if result.phase is not None
-                    else np.zeros_like(result.spl)
-                ),
-                bands,
-            )
-            responses["Filtered SPL (dB)"] = np.array(filt_spl)
-            responses["Filtered Impedance (Ohms)"] = np.array(filt_imp)
-            responses["Filtered Phase (degrees)"] = np.array(filt_phase)
-            responses["Filter contribution (dB)"] = np.array(filt_mag_db)
-            typer.echo(
-                f"Applied {len([b for b in bands if b.enabled])} filter band(s) from {_filter_yaml_path}"
-            )
 
     # Add second tone distortion column when available (single-segment horns only)
     if result.second_tone_distortion is not None:
@@ -1016,7 +894,11 @@ def calculate(
         typer.echo(f"Saved report to {report_path}")
 
     # ── Thermal Power Compression Report ──────────────────────────────────────
-    if thermal_compression and result.thermal_compression_db is not None and voice_coil_temp is not None:
+    if (
+        thermal_compression
+        and result.thermal_compression_db is not None
+        and voice_coil_temp is not None
+    ):
         tcdb = result.thermal_compression_db
         alpha = getattr(driver, "alpha_re", 0.00393)
         re_hot = driver.re * (1.0 + alpha * (voice_coil_temp - 20.0))

@@ -194,7 +194,7 @@ def resize_wizard(
         for key in ("rear_chamber", "throat_chamber", "vented_box", "passive_radiator"):
             val = getattr(horn_proj, key, None)
             if val is not None:
-                proj_data[key] = asdict(val)
+                proj_data[key] = asdict(val)  # type: ignore[literal-required]
 
         proj_yaml_str = yaml.safe_dump(
             {k: v for k, v in proj_data.items() if v is not None},
