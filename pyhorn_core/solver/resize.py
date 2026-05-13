@@ -3,12 +3,14 @@
 Scale horn geometry and driver Sd proportionally.
 Larger horn → response shifts to lower frequencies; curve shape is preserved.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import List, Tuple, Optional, Dict, Any
 
-from pyhorn_core.config.models import DriverSpecs, HornGeometry
+from pyhorn_core.config.driver_models import DriverSpecs
+from pyhorn_core.config.horn_models import HornGeometry
 
 
 @dataclass
@@ -26,6 +28,7 @@ class ResizeWizard:
                    leave False (the default). Set True if swapping to a different
                    driver sized to match the scaled horn.
     """
+
     resize_factor: float
     adjust_sd: bool = True
     adjust_re: bool = False  # Re doesn't change with size for the same driver
@@ -82,12 +85,12 @@ def _scale_horn_geometry(g: HornGeometry, factor: float) -> HornGeometry:
         scaled = []
         for seg in g.rectangular_segments:
             if len(seg) >= 5:
-                w_start = seg[0]            # unchanged
+                w_start = seg[0]  # unchanged
                 h_start = seg[1] * factor2  # area dim → ×factor²
-                w_end = seg[2]              # unchanged
-                h_end = seg[3] * factor2    # area dim → ×factor²
+                w_end = seg[2]  # unchanged
+                h_end = seg[3] * factor2  # area dim → ×factor²
                 length = seg[4] * factor
-                rest = tuple(seg[5:])        # flow resistivity unchanged
+                rest = tuple(seg[5:])  # flow resistivity unchanged
                 scaled.append((w_start, h_start, w_end, h_end, length) + rest)
             else:
                 scaled.append(seg)
@@ -106,9 +109,7 @@ def _scale_horn_geometry(g: HornGeometry, factor: float) -> HornGeometry:
 
     # ── bends: (area_before_m2, area_after_m2) → both × factor²
     if g.bends:
-        updates["bends"] = [
-            (a * factor2, b * factor2) for a, b in g.bends
-        ]
+        updates["bends"] = [(a * factor2, b * factor2) for a, b in g.bends]
 
     # ── coordinates: (x, y) → both × factor
     if g.coordinates:
@@ -137,7 +138,9 @@ def _scale_horn_geometry(g: HornGeometry, factor: float) -> HornGeometry:
     return replace(g, **updates) if updates else g
 
 
-def _scale_driver(driver: DriverSpecs, factor: float, adjust_sd: bool, adjust_re: bool) -> DriverSpecs:
+def _scale_driver(
+    driver: DriverSpecs, factor: float, adjust_sd: bool, adjust_re: bool
+) -> DriverSpecs:
     """Scale driver specs proportionally."""
     factor2 = factor * factor
 

@@ -37,12 +37,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from pyhorn_core.config.models import ThroatAdapter
-
+from pyhorn_core.config.chamber_models import ThroatAdapter
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Dataclasses
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ThroatAdapterInput:
@@ -68,10 +68,10 @@ class ThroatAdapterInput:
         ``parabolic``.
     """
 
-    D1: float           # metres
-    D2: float           # metres
-    A1_deg: float        # degrees (flare half-angle at input end)
-    A2_deg: float        # degrees (flare half-angle at output end)
+    D1: float  # metres
+    D2: float  # metres
+    A1_deg: float  # degrees (flare half-angle at input end)
+    A2_deg: float  # degrees (flare half-angle at output end)
     profile_type: str = "cylindrical"
 
     def __post_init__(self):
@@ -79,7 +79,12 @@ class ThroatAdapterInput:
             raise ValueError(f"D1 must be a positive diameter in metres, got {self.D1}")
         if not 0 < self.D2 < 10:
             raise ValueError(f"D2 must be a positive diameter in metres, got {self.D2}")
-        if self.profile_type not in ("cylindrical", "conical", "exponential", "parabolic"):
+        if self.profile_type not in (
+            "cylindrical",
+            "conical",
+            "exponential",
+            "parabolic",
+        ):
             raise ValueError(
                 f"profile_type must be one of cylindrical|conical|exponential|parabolic, "
                 f"got {self.profile_type!r}"
@@ -90,8 +95,10 @@ class ThroatAdapterInput:
 # Helper: area / diameter conversions
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _diameter_to_area(d: float) -> float:
     return math.pi * (d / 2) ** 2
+
 
 def _area_to_diameter(a: float) -> float:
     return 2 * math.sqrt(a / math.pi)
@@ -101,7 +108,10 @@ def _area_to_diameter(a: float) -> float:
 # Core geometry calculator
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _minimum_length_conical(D1: float, D2: float, A1_deg: float, A2_deg: float) -> float:
+
+def _minimum_length_conical(
+    D1: float, D2: float, A1_deg: float, A2_deg: float
+) -> float:
     """Minimum length for a conical adapter.
 
     For a constant-flare-angle cone the geometry gives::
@@ -139,7 +149,9 @@ def _minimum_length_conical(D1: float, D2: float, A1_deg: float, A2_deg: float) 
     return delta / (2.0 * tan_alpha)
 
 
-def _minimum_length_exponential(D1: float, D2: float, A1_deg: float, A2_deg: float) -> float:
+def _minimum_length_exponential(
+    D1: float, D2: float, A1_deg: float, A2_deg: float
+) -> float:
     """Approximate minimum length for an exponential throat adapter.
 
     The exponential profile A(x) = A0·exp(m·x) has a flare rate (dA/dx) that
@@ -174,7 +186,9 @@ def _minimum_length_exponential(D1: float, D2: float, A1_deg: float, A2_deg: flo
     return D_mean / (2.0 * tan_alpha)
 
 
-def _minimum_length_parabolic(D1: float, D2: float, A1_deg: float, A2_deg: float) -> float:
+def _minimum_length_parabolic(
+    D1: float, D2: float, A1_deg: float, A2_deg: float
+) -> float:
     """Approximate minimum length for a parabolic throat adapter.
 
     The parabolic profile uses √A(x) linear in x, which gives a gentler taper
@@ -287,6 +301,7 @@ def compute_throat_adapter(
 # Profile function: area as function of x along the adapter
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def throat_adapter_profile(
     adapter: ThroatAdapter,
     A0: float | None = None,
@@ -354,7 +369,7 @@ def throat_adapter_profile(
         sq_A0 = math.sqrt(A0)
         sq_ap1 = math.sqrt(ap1)
         sq_area = sq_A0 + (sq_ap1 - sq_A0) * (x / lpt)
-        area = sq_area ** 2
+        area = sq_area**2
     else:
         # Unknown type — return cylindrical
         area = np.full_like(x, ap1, dtype=float)
@@ -373,4 +388,5 @@ def throat_adapter_profile(
 def _area_to_diameter_array(area_array) -> "np.ndarray":
     """Vectorised diameter from area array."""
     import numpy as np
+
     return 2.0 * np.sqrt(area_array / math.pi)

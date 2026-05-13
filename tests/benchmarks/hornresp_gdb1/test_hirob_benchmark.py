@@ -1,5 +1,4 @@
 import csv
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -7,15 +6,15 @@ import numpy as np
 from pyhorn_core.config.parser import parse_horn_project, parse_driver_specs
 from pyhorn_core.pyhorn_physics.orchestrators import horn_response
 from tests.benchmarks.hornresp_gdb1.compare_hirob import (
-    BENCHMARK_CROSSOVER_HZ,
-    build_hirob_benchmark_curve,
     build_hirob_benchmark_driver,
+    build_hirob_reference_curves,
 )
 
 REPO = Path(__file__).resolve().parents[3]
-HR_CSV = REPO / "tests/benchmarks/hornresp_gdb1/hornresp_spl_hirob.csv"
-PROJECT = REPO / "projects/hirob.yaml"
-DRIVER = REPO / "drivers/FE166NV2.yaml"
+BENCHMARK_ROOT = REPO / "tests/benchmarks/hornresp/hirob"
+HR_CSV = BENCHMARK_ROOT / "reference/hornresp_spl.csv"
+PROJECT = BENCHMARK_ROOT / "fixture/horn.yaml"
+DRIVER = BENCHMARK_ROOT / "fixture/driver.yaml"
 
 
 def _load_hornresp_csv() -> tuple[np.ndarray, np.ndarray]:
@@ -39,7 +38,7 @@ def test_hirob_benchmark_driver_disables_productized_layers():
     )
 
 
-def test_hirob_benchmark_composite_tracks_reference_within_bounds():
+def test_hirob_power_based_tracks_reference_within_bounds():
     hr_freqs, hr_spls = _load_hornresp_csv()
     _, horn = parse_horn_project(PROJECT)
     driver = build_hirob_benchmark_driver(parse_driver_specs(DRIVER))
@@ -50,18 +49,15 @@ def test_hirob_benchmark_composite_tracks_reference_within_bounds():
         1500,
     )
     result = horn_response(py_freqs, driver, horn, compute_distortion=False)
-    _, py_pb, benchmark_curve = build_hirob_benchmark_curve(
-        hr_freqs,
-        py_freqs,
-        result,
-        crossover_hz=BENCHMARK_CROSSOVER_HZ,
-    )
+    py_spl, py_pb = build_hirob_reference_curves(hr_freqs, py_freqs, result)
 
-    delta_benchmark = benchmark_curve - hr_spls
+    delta_pressure = py_spl - hr_spls
     delta_power = py_pb - hr_spls
-    benchmark_rms = float(np.sqrt(np.mean(delta_benchmark**2)))
+    pressure_rms = float(np.sqrt(np.mean(delta_pressure**2)))
     power_rms = float(np.sqrt(np.mean(delta_power**2)))
+    notch_idx = int(np.argmin(np.abs(hr_freqs - 196.0)))
 
-    assert benchmark_rms < 4.0
-    assert float(np.max(np.abs(delta_benchmark))) < 10.0
-    assert benchmark_rms < power_rms
+    assert power_rms < 4.0
+    assert float(np.max(np.abs(delta_power))) < 6.5
+    assert power_rms < pressure_rms
+    assert abs(delta_power[notch_idx]) < abs(delta_pressure[notch_idx])

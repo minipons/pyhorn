@@ -4,13 +4,11 @@ Compare Hornresp CSV (hornresp_spl_hirob.csv) against pyhorn for the HiroB proje
 Run from repo root: python tests/benchmarks/hornresp_gdb1/compare_hirob.py
 
 This comparison intentionally disables pyhorn's productized driver layers
-(`spl_response`, `lossy_le`) and uses a composite benchmark curve:
+(`spl_response`, `lossy_le`) and compares Hornresp against pyhorn's
+power-based system reference (`result.spl_power_based`).
 
-- below 50 Hz: pressure-based total SPL (`result.spl`)
-- at or above 50 Hz: calibrated power-based SPL (`result.spl_power_based`)
-
-That keeps the Hornresp benchmark focused on the system reference curve rather
-than the presentation layers used for normal pyhorn listening-response plots.
+The pressure-based total (`result.spl`) is still printed as a diagnostic for
+BLH interference notches, but it is not the Hornresp benchmark target.
 """
 
 from dataclasses import replace
@@ -31,11 +29,11 @@ sys.path.insert(0, str(REPO))
 from pyhorn_core.config.parser import parse_horn_project, parse_driver_specs
 from pyhorn_core.pyhorn_physics.orchestrators import horn_response
 
-HR_CSV = REPO / "tests/benchmarks/hornresp_gdb1/hornresp_spl_hirob.csv"
-PROJECT = REPO / "projects/hirob.yaml"
-DRIVER = REPO / "drivers/FE166NV2.yaml"
-OUT_PNG = REPO / "tests/benchmarks/hornresp_gdb1/compare_hirob_plot.png"
-BENCHMARK_CROSSOVER_HZ = 50.0
+BENCHMARK_ROOT = REPO / "tests/benchmarks/hornresp/hirob"
+HR_CSV = BENCHMARK_ROOT / "reference/hornresp_spl.csv"
+PROJECT = BENCHMARK_ROOT / "fixture/horn.yaml"
+DRIVER = BENCHMARK_ROOT / "fixture/driver.yaml"
+OUT_PNG = BENCHMARK_ROOT / "compare_hirob_plot.png"
 
 
 def _load_hornresp_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -62,16 +60,14 @@ def _interp_log_response(
     )(np.log10(target_freqs))
 
 
-def build_hirob_benchmark_curve(
+def build_hirob_reference_curves(
     hr_freqs: np.ndarray,
     py_freqs: np.ndarray,
     result,
-    crossover_hz: float = BENCHMARK_CROSSOVER_HZ,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     py_spl = _interp_log_response(hr_freqs, py_freqs, result.spl)
     py_pb = _interp_log_response(hr_freqs, py_freqs, result.spl_power_based)
-    benchmark_curve = np.where(hr_freqs < crossover_hz, py_spl, py_pb)
-    return py_spl, py_pb, benchmark_curve
+    return py_spl, py_pb
 
 
 def main() -> None:
@@ -95,8 +91,7 @@ def main() -> None:
     )
     print(
         f"Benchmark overrides: spl_response={'off' if benchmark_driver.spl_response is None else 'on'}  "
-        f"lossy_le={'on' if benchmark_driver.lossy_le else 'off'}  "
-        f"crossover={BENCHMARK_CROSSOVER_HZ:.0f} Hz"
+        f"lossy_le={'on' if benchmark_driver.lossy_le else 'off'}"
     )
 
     py_freqs = np.logspace(
@@ -111,43 +106,49 @@ def main() -> None:
     )
 
     valid = (hr_freqs >= py_freqs.min()) & (hr_freqs <= py_freqs.max())
-    py_spl, py_pb, py_benchmark = build_hirob_benchmark_curve(
-        hr_freqs, py_freqs, result
-    )
+    py_spl, py_pb = build_hirob_reference_curves(hr_freqs, py_freqs, result)
 
     d_pressure = py_spl[valid] - hr_spls[valid]
     d_power = py_pb[valid] - hr_spls[valid]
-    d_benchmark = py_benchmark[valid] - hr_spls[valid]
     print("\nOverall delta vs Hornresp:")
     print(
-        f"  benchmark composite: mean={d_benchmark.mean():+6.2f} dB  std={d_benchmark.std():5.2f} dB"
+        f"  spl_power_based:     mean={d_power.mean():+6.2f} dB  std={d_power.std():5.2f} dB"
     )
     print(
         f"  spl (pressure):      mean={d_pressure.mean():+6.2f} dB  std={d_pressure.std():5.2f} dB"
     )
-    print(
-        f"  spl_power_based:     mean={d_power.mean():+6.2f} dB  std={d_power.std():5.2f} dB"
-    )
 
-    print("\nPer-decade delta (benchmark composite vs Hornresp):")
+    print("\nPer-decade delta (spl_power_based vs Hornresp):")
     print(f"  {'band':>14}  {'n':>4}  {'mean':>7}  {'std':>5}  {'max|d|':>7}")
     for lo in [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]:
         m = valid & (hr_freqs >= lo) & (hr_freqs < lo * 10)
         if m.sum() < 3:
             continue
-        d = py_benchmark[m] - hr_spls[m]
+        d = py_pb[m] - hr_spls[m]
         print(
             f"  {lo:5}-{lo*10:5} Hz  {m.sum():4d}  {d.mean():+7.2f}  {d.std():5.2f}  {np.max(np.abs(d)):7.2f}"
         )
 
+    notch_target = 196.0
+    notch_idx = int(np.argmin(np.abs(hr_freqs - notch_target)))
+    print("\nBLH notch diagnostic:")
+    print(
+        f"  {hr_freqs[notch_idx]:7.1f} Hz | HR {hr_spls[notch_idx]:7.2f} | "
+        f"pyhorn-spl {py_spl[notch_idx]:7.2f} | pyhorn-pb {py_pb[notch_idx]:7.2f}"
+    )
+    print(
+        f"            direct {result.direct_spl[np.argmin(np.abs(py_freqs - hr_freqs[notch_idx]))]:7.2f} | "
+        f"horn {result.horn_spl[np.argmin(np.abs(py_freqs - hr_freqs[notch_idx]))]:7.2f}"
+    )
+
     print("\nPoint comparison at key frequencies:")
     print(
-        f"  {'freq':>7} | {'HR':>7} | {'benchmark':>10} | {'pyhorn-spl':>10} | {'pyhorn-pb':>10}"
+        f"  {'freq':>7} | {'HR':>7} | {'pyhorn-pb':>10} | {'pyhorn-spl':>10} | {'d_power':>8}"
     )
-    for target in [20, 30, 50, 80, 100, 200, 500, 1000, 2000, 5000]:
+    for target in [20, 30, 50, 80, 100, 196, 200, 500, 1000, 2000, 5000]:
         i = int(np.argmin(np.abs(hr_freqs - target)))
         print(
-            f"  {hr_freqs[i]:7.1f} | {hr_spls[i]:7.2f} | {py_benchmark[i]:10.2f} | {py_spl[i]:10.2f} | {py_pb[i]:10.2f}"
+            f"  {hr_freqs[i]:7.1f} | {hr_spls[i]:7.2f} | {py_pb[i]:10.2f} | {py_spl[i]:10.2f} | {py_pb[i] - hr_spls[i]:+8.2f}"
         )
 
     print("\nCRIT-1 diagnostic (rear chamber):")
@@ -185,10 +186,10 @@ def main() -> None:
     ax.plot(hr_freqs, hr_spls, "b-", lw=1.5, label="Hornresp", alpha=0.8)
     ax.plot(
         hr_freqs,
-        py_benchmark,
+        py_pb,
         color="#f59e0b",
         lw=1.2,
-        label=f"pyhorn benchmark composite ({BENCHMARK_CROSSOVER_HZ:.0f} Hz split)",
+        label="pyhorn spl_power_based (benchmark)",
     )
     ax.plot(
         py_freqs, result.spl, "r--", lw=0.8, label="pyhorn spl (pressure)", alpha=0.45
@@ -204,17 +205,17 @@ def main() -> None:
     ax.set_xscale("log")
     ax.set_xlabel("Freq (Hz)")
     ax.set_ylabel("SPL (dB)")
-    ax.set_title(f"HiroB — Hornresp vs pyhorn benchmark composite  ({proj.name})")
+    ax.set_title(f"HiroB — Hornresp vs pyhorn spl_power_based  ({proj.name})")
     ax.grid(True, which="both", alpha=0.3)
     ax.legend()
 
     ax = axes[1]
     ax.plot(
         hr_freqs[valid],
-        d_benchmark,
+        d_power,
         color="#f59e0b",
         lw=1.0,
-        label="benchmark composite - HR",
+        label="pyhorn-pb - HR",
     )
     ax.plot(
         hr_freqs[valid], d_pressure, "r-", lw=0.8, alpha=0.4, label="pyhorn-spl - HR"
@@ -227,7 +228,7 @@ def main() -> None:
     ax.set_xlabel("Freq (Hz)")
     ax.set_ylabel("delta dB")
     ax.set_title(
-        f"benchmark composite vs HR: mean={d_benchmark.mean():+.2f} std={d_benchmark.std():.2f}"
+        f"spl_power_based vs HR: mean={d_power.mean():+.2f} std={d_power.std():.2f}"
     )
     ax.grid(True, which="both", alpha=0.3)
     ax.legend()

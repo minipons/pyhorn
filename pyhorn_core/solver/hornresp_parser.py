@@ -44,7 +44,7 @@ mm/N, litres). The parser strips units before converting to SI.
 
 This module lives in `pyhorn_core/solver/` (not `config/`) because it is
 concerned with **importing external reference data**, not with pyhorn's own
-file format. It is a leaf dependency: it imports from `pyhorn_core.config.models`
+file format. It is a leaf dependency: it imports config dataclasses only,
 but nothing in `config/` imports back from `solver/`. The solver layer receives
 already-constructed domain objects; it never calls these parser functions
 directly.
@@ -55,8 +55,8 @@ import re
 from pathlib import Path
 from typing import Dict, Optional
 
-from pyhorn_core.config.models import DriverSpecs, HornGeometry
-
+from pyhorn_core.config.driver_models import DriverSpecs
+from pyhorn_core.config.horn_models import HornGeometry
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Raw parsing
@@ -137,6 +137,7 @@ def _f(text: str) -> float:
     before conversion so that "7.80 ohms", "40 cm^2", "49.6 Hz" all parse correctly.
     """
     import re
+
     m = re.search(r"[+-]?[\d.]+[eE+-]*\d*", text.strip())
     if m is None:
         raise ValueError(f"Cannot parse float from Hornresp value: {text!r}")
@@ -154,15 +155,15 @@ def hornresp_driver_to_specs(params: Dict[str, str]) -> DriverSpecs:
     Hornresp stores Cms in mm/N and Mmd in grams — both need conversion to SI.
     fs, Qts, Qms, Qes, Vas are derived from the raw values.
     """
-    re_  = _f(params["Re"])
-    sd_  = _f(params["Sd"]) / 10000.0   # cm² → m²
-    bl_  = _f(params["Bl"])              # N/A  (no conversion)
-    le_  = _f(params["Le"]) / 1000.0   # mH → H
-    rms_ = _f(params["Rms"])            # kg/s
-    cms_ = _f(params["Cms"]) * 1e-3   # mm/N → m/N
+    re_ = _f(params["Re"])
+    sd_ = _f(params["Sd"]) / 10000.0  # cm² → m²
+    bl_ = _f(params["Bl"])  # N/A  (no conversion)
+    le_ = _f(params["Le"]) / 1000.0  # mH → H
+    rms_ = _f(params["Rms"])  # kg/s
+    cms_ = _f(params["Cms"]) * 1e-3  # mm/N → m/N
     mms_ = _f(params["Mmd"]) / 1000.0  # g → kg
 
-    fs_  = 1.0 / (2.0 * math.pi * cms_ * mms_) if cms_ > 0 and mms_ > 0 else 0.0
+    fs_ = 1.0 / (2.0 * math.pi * cms_ * mms_) if cms_ > 0 and mms_ > 0 else 0.0
     qms_ = rms_ / (2.0 * math.pi * fs_ * mms_) if fs_ > 0 else 0.0
     qes_ = (bl_**2) / (re_ * 2.0 * math.pi * fs_ * mms_) if fs_ > 0 and re_ > 0 else 0.0
     qts_ = qes_ * qms_ / (qes_ + qms_) if (qes_ + qms_) > 0 else 0.0
@@ -173,9 +174,20 @@ def hornresp_driver_to_specs(params: Dict[str, str]) -> DriverSpecs:
     xmax_ = _f(params.get("Xmax", "0")) / 1000.0  # mm → m
 
     return DriverSpecs(
-        fs=fs_, qts=qts_, qes=qes_, qms=qms_, vas=vas_,
-        re=re_, sd=sd_, bl=bl_, cms=cms_, rms=rms_,
-        le=le_, mms=mms_, xmax=xmax_, voltage=2.83,
+        fs=fs_,
+        qts=qts_,
+        qes=qes_,
+        qms=qms_,
+        vas=vas_,
+        re=re_,
+        sd=sd_,
+        bl=bl_,
+        cms=cms_,
+        rms=rms_,
+        le=le_,
+        mms=mms_,
+        xmax=xmax_,
+        voltage=2.83,
     )
 
 
@@ -189,9 +201,19 @@ def hornresp_project_to_driver_specs(params: Dict[str, str]) -> DriverSpecs:
     driver_params = {k: v for k, v in params.items() if k in driver_keys}
     if not driver_params:
         return DriverSpecs(
-            fs=0.0, qts=0.0, qes=0.0, qms=0.0, vas=0.0,
-            re=0.0, bl=0.0, mms=0.0, cms=0.0, rms=0.0,
-            sd=0.0, le=0.0, xmax=0.0,
+            fs=0.0,
+            qts=0.0,
+            qes=0.0,
+            qms=0.0,
+            vas=0.0,
+            re=0.0,
+            bl=0.0,
+            mms=0.0,
+            cms=0.0,
+            rms=0.0,
+            sd=0.0,
+            le=0.0,
+            xmax=0.0,
         )
     return hornresp_driver_to_specs(driver_params)
 
@@ -229,8 +251,8 @@ def hornresp_project_to_geometry(params: Dict[str, str]) -> HornGeometry:
       Vtc               : cm³ → m³
     """
     throat_area_m2 = _f(params.get("S1", "0")) / 10000.0
-    mouth_area_m2  = _f(params.get("S2", "0")) / 10000.0
-    path_length_m  = _f(params.get("Hyp", "0")) / 100.0
+    mouth_area_m2 = _f(params.get("S2", "0")) / 10000.0
+    path_length_m = _f(params.get("Hyp", "0")) / 100.0
     t = _f(params.get("T", "1"))
     vrc_l = _f(params.get("Vrc", "0"))
 

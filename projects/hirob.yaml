@@ -22,7 +22,7 @@ enclosure_type: BLH
 throat_area: 0.0080    # 80 cm²
 mouth_area: 0.0800       # 800 cm²
 path_length: 1.430       # 1430 mm total acoustic path
-n_segments: 100
+n_segments: 300
 profile_type: hyperbolic
 hyperbolic_t: 0.70
 

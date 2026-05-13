@@ -27,7 +27,8 @@ from dataclasses import dataclass
 from typing import Optional, List, Tuple, Callable
 from scipy.optimize import differential_evolution
 
-from pyhorn_core.config.models import DriverSpecs, HornGeometry
+from pyhorn_core.config.driver_models import DriverSpecs
+from pyhorn_core.config.horn_models import HornGeometry
 from pyhorn_core.config.design_space import (
     ALL_PROFILE_TYPES,
     MOUTH_AREA_RANGE,

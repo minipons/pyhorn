@@ -11,14 +11,14 @@
 
 CRIT-1 is the persistent low-frequency (20–80 Hz) SPL mismatch between pyhorn and Hornresp for the GdB1 (BKHiro) geometry:
 
-| Freq | Hornresp | pyhorn (coupling) | Δraw |
-|------|----------|-------------------|------|
-| 20 Hz | 73.4 dB | ~50–55 dB | **−18 to −23 dB** |
-| 30 Hz | 82.7 dB | ~65–70 dB | **−12 to −17 dB** |
-| 40 Hz | 91.0 dB | ~77–82 dB | **−9 to −14 dB** |
-| 50 Hz | 100.3 dB | ~100–110 dB | **≈0 dB ✓** |
-| 60 Hz | 106.6 dB | ~107–108 dB | **≈0 dB ✓** |
-| 80 Hz | 104.7 dB | ~104–105 dB | **≈0 dB ✓** |
+| Freq  | Hornresp | pyhorn (coupling) | Δraw              |
+| ----- | -------- | ----------------- | ----------------- |
+| 20 Hz | 73.4 dB  | ~50–55 dB         | **−18 to −23 dB** |
+| 30 Hz | 82.7 dB  | ~65–70 dB         | **−12 to −17 dB** |
+| 40 Hz | 91.0 dB  | ~77–82 dB         | **−9 to −14 dB**  |
+| 50 Hz | 100.3 dB | ~100–110 dB       | **≈0 dB ✓**       |
+| 60 Hz | 106.6 dB | ~107–108 dB       | **≈0 dB ✓**       |
+| 80 Hz | 104.7 dB | ~104–105 dB       | **≈0 dB ✓**       |
 
 The **coupling chamber model** (`chamber_type: coupling`) was implemented in `9f2fc30` and correctly handles the stiffness-dominated behavior of the BLH rear chamber. The remaining gap is **geometry-specific calibration** — the coupling model has a free parameter (`throat_area` of the rear chamber connection) that needs calibration per geometry.
 
@@ -41,12 +41,12 @@ Hornresp uses specific values for the rear chamber that are not fully documented
 
 For **each geometry** to be calibrated, Hornresp must export the rear chamber tab with:
 
-| Parameter | Description | Units |
-|-----------|-------------|-------|
-| `Vrc` | Rear chamber volume | litres (L) |
-| `Lrc` | Rear chamber effective port length | cm |
-| `Fr` or `Fb` | Rear chamber tuning frequency (if vented) | Hz |
-| `Drc` or `Diameter` | Port/vent diameter (if vented) | cm |
+| Parameter           | Description                               | Units      |
+| ------------------- | ----------------------------------------- | ---------- |
+| `Vrc`               | Rear chamber volume                       | litres (L) |
+| `Lrc`               | Rear chamber effective port length        | cm         |
+| `Fr` or `Fb`        | Rear chamber tuning frequency (if vented) | Hz         |
+| `Drc` or `Diameter` | Port/vent diameter (if vented)            | cm         |
 
 > ⚠️ **Critical distinction:** For the coupling chamber model, `Lrc` is NOT a vent length — it is the effective length of the throat connection (determines acoustic mass loading at the throat). For the vented model, `Lrc` is the vent length and `Fb` is the Helmholtz tuning frequency.
 
@@ -102,7 +102,7 @@ If Hornresp has a command-line or script export, request a batch export for all 
 Once Geopan provides the data:
 
 ### Step 1: Update Reference CSVs
-Replace the stale reference CSVs (e.g., `tests/benchmarks/hornresp_gdb1/hornresp_spl.csv`) with exports from the coupling model (same geometry, re-run in Hornresp after confirming the rear chamber is treated as a coupling chamber, not vented).
+Replace the stale reference CSVs (for example, `tests/benchmarks/hornresp_gdb1/hornresp_spl.csv` for GdB1, or `tests/benchmarks/hornresp/hirob/reference/hornresp_spl.csv` for HiroB) with exports from the coupling model (same geometry, re-run in Hornresp after confirming the rear chamber is treated as a coupling chamber, not vented).
 
 ### Step 2: Calibrate `throat_area` in Coupling Model
 The coupling chamber model in pyhorn has a `throat_area` parameter (connection area between rear chamber and horn throat). This is the primary calibration knob. Compare pyhorn's throat impedance vs Hornresp's `Ztf` export to find the correct value.

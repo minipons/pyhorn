@@ -64,7 +64,17 @@ from pathlib import Path
 from typing import Dict, Any, List, cast, Optional
 import numpy as np
 
-from .models import DriverSpecs, HornGeometry, HornProject, PassiveRadiator, RearChamber, Section, SlavicBox, ThroatAdapter, ThroatChamber, VentedBox
+from .chamber_models import (
+    PassiveRadiator,
+    RearChamber,
+    ThroatAdapter,
+    ThroatChamber,
+    VentedBox,
+    SlavicBox,
+)
+from .driver_models import DriverSpecs
+from .horn_models import HornGeometry, Section, TappedHornGeometry
+from .project_models import HornProject
 
 
 def _validate_driver_specs(data: Dict[str, Any]) -> None:
@@ -85,7 +95,9 @@ def _validate_driver_specs(data: Dict[str, Any]) -> None:
     }
     for name, value in _must_be_positive.items():
         if value is None:
-            raise ValueError(f"Driver parameter '{name}' is required but missing from driver YAML.")
+            raise ValueError(
+                f"Driver parameter '{name}' is required but missing from driver YAML."
+            )
         if not isinstance(value, (int, float)):
             raise ValueError(
                 f"Driver parameter '{name}' must be a number, got {type(value).__name__!r}"
@@ -139,9 +151,9 @@ def _validate_horn_geometry(data: Dict[str, Any]) -> None:
     # (coordinates, conical_segments, rectangular_segments) which the solver handles
     # differently.  Only enforce the check when the file has neither sections nor
     # any legacy segment list.
-    has_sections = data.get("sections") is not None or data.get(
-        "profile_sections"
-    ) is not None
+    has_sections = (
+        data.get("sections") is not None or data.get("profile_sections") is not None
+    )
     has_legacy_segments = (
         data.get("coordinates") is not None
         or data.get("conical_segments") is not None
@@ -151,7 +163,7 @@ def _validate_horn_geometry(data: Dict[str, Any]) -> None:
     if not has_sections and not has_legacy_segments:
         _required_horn = {
             "throat_area": data.get("throat_area"),
-            "mouth_area":  data.get("mouth_area"),
+            "mouth_area": data.get("mouth_area"),
             "path_length": data.get("path_length"),
         }
         for name, value in _required_horn.items():
@@ -173,9 +185,9 @@ def _validate_horn_geometry(data: Dict[str, Any]) -> None:
 
     _must_be_positive = {
         "throat_area": data.get("throat_area"),
-        "mouth_area":  data.get("mouth_area"),
+        "mouth_area": data.get("mouth_area"),
         "path_length": data.get("path_length"),
-        "n_segments":  data.get("n_segments"),
+        "n_segments": data.get("n_segments"),
     }
     for name, value in _must_be_positive.items():
         if value is None:
@@ -193,13 +205,13 @@ def _validate_horn_geometry(data: Dict[str, Any]) -> None:
             )
 
     _must_be_non_negative = {
-        "vrc":    data.get("vrc",    0.0),
-        "lrc":    data.get("lrc",    0.0),
-        "vtc":    data.get("vtc",    0.0),
-        "fr_rc":  data.get("fr_rc",  0.0),
-        "fr_tc":  data.get("fr_tc",  0.0),
-        "lpt":    data.get("lpt",    0.0),
-        "ang":    data.get("ang",    6.283185307),
+        "vrc": data.get("vrc", 0.0),
+        "lrc": data.get("lrc", 0.0),
+        "vtc": data.get("vtc", 0.0),
+        "fr_rc": data.get("fr_rc", 0.0),
+        "fr_tc": data.get("fr_tc", 0.0),
+        "lpt": data.get("lpt", 0.0),
+        "ang": data.get("ang", 6.283185307),
     }
     for name, value in _must_be_non_negative.items():
         if not isinstance(value, (int, float)):
@@ -231,9 +243,7 @@ def _validate_horn_geometry(data: Dict[str, Any]) -> None:
             for field in ("start_area", "end_area", "length"):
                 val = raw.get(field)
                 if val is None:
-                    raise ValueError(
-                        f"sections[{i}].{field} is required but missing."
-                    )
+                    raise ValueError(f"sections[{i}].{field} is required but missing.")
                 if not isinstance(val, (int, float)):
                     raise ValueError(
                         f"sections[{i}].{field} must be a number, got {type(val).__name__!r}."
@@ -261,7 +271,11 @@ def parse_driver_specs(filepath: Path | str) -> DriverSpecs:
     if "spl_response" in data:
         sr = data["spl_response"]
         if isinstance(sr, str):
-            csv_path = (filepath.parent / sr).resolve() if not Path(sr).is_absolute() else Path(sr)
+            csv_path = (
+                (filepath.parent / sr).resolve()
+                if not Path(sr).is_absolute()
+                else Path(sr)
+            )
             if not csv_path.exists():
                 raise FileNotFoundError(
                     f"spl_response CSV not found: {csv_path}\n"
@@ -330,7 +344,9 @@ def parse_horn_project(project_path: Path | str) -> tuple[HornProject, HornGeome
         proj_data["rear_chamber"] = RearChamber(**proj_data["rear_chamber"])
     if "vented_box" in proj_data and isinstance(proj_data["vented_box"], dict):
         proj_data["vented_box"] = VentedBox(**proj_data["vented_box"])
-    if "passive_radiator" in proj_data and isinstance(proj_data["passive_radiator"], dict):
+    if "passive_radiator" in proj_data and isinstance(
+        proj_data["passive_radiator"], dict
+    ):
         pr_data = proj_data["passive_radiator"].copy()
         # Handle shorthand `sp` key → sp1
         if "sp" in pr_data:
@@ -424,9 +440,11 @@ def _parse_sections(data: Dict[str, Any]) -> Optional[List[Section]]:
                 length=float(raw["length"]),
                 start_area=float(raw["start_area"]),
                 end_area=float(raw["end_area"]),
-                hyperbolic_t=float(raw["hyperbolic_t"])
-                if raw.get("hyperbolic_t") is not None
-                else None,
+                hyperbolic_t=(
+                    float(raw["hyperbolic_t"])
+                    if raw.get("hyperbolic_t") is not None
+                    else None
+                ),
                 fr1=float(raw["fr1"]) if raw.get("fr1") is not None else 0.0,
                 tal1=float(raw["tal1"]) if raw.get("tal1") is not None else 0.0,
             )
@@ -436,17 +454,37 @@ def _parse_sections(data: Dict[str, Any]) -> Optional[List[Section]]:
 
 def parse_horn_geometry(filepath: Path | str | dict) -> HornGeometry:
     """Parses horn geometry from a JSON or YAML file, or from a dict directly."""
+    horn_fields = set(HornGeometry.__dataclass_fields__.keys())
+    allowed_passthrough_fields = (
+        set(HornProject.__dataclass_fields__.keys())
+        | set(TappedHornGeometry.__dataclass_fields__.keys())
+        | {"profile_sections", "throat_adapter", "height", "voltage", "source"}
+    )
+    retained_fields = horn_fields | {"profile_sections", "throat_adapter"}
+
     if isinstance(filepath, dict):
-        data = filepath
-        # Filter to only HornGeometry fields when called with inline project data
-        horn_fields = HornGeometry.__dataclass_fields__.keys()
-        data = {k: v for k, v in data.items() if k in horn_fields}
+        raw_data = filepath
+        data = {k: v for k, v in raw_data.items() if k in retained_fields}
     else:
         filepath = Path(filepath)
-        data = _load_file(filepath)
-        # Filter out non-geometry fields (e.g. 'name', 'notes') before passing to HornGeometry
-        horn_fields = HornGeometry.__dataclass_fields__.keys()
-        data = {k: v for k, v in data.items() if k in horn_fields}
+        raw_data = _load_file(filepath)
+        allowed_fields = horn_fields | allowed_passthrough_fields
+        unknown_fields = sorted(
+            key
+            for key in raw_data.keys()
+            if key not in allowed_fields and not key.startswith("_")
+        )
+        if unknown_fields:
+            unknown_list = ", ".join(repr(name) for name in unknown_fields)
+            raise ValueError(
+                f"Unknown horn geometry field(s): {unknown_list}. "
+                f"Check that your YAML matches the pyhorn horn schema."
+            )
+        data = {
+            k: v
+            for k, v in raw_data.items()
+            if k in retained_fields or k.startswith("_")
+        }
     _validate_horn_geometry(data)
 
     # Handle chained profile sections (new format)
@@ -484,7 +522,6 @@ def parse_horn_geometry(filepath: Path | str | dict) -> HornGeometry:
     # Handle throat adapter — nested dict or top-level ap1/lpt fields
     throat_adapter_data = data.pop("throat_adapter", None)
     if throat_adapter_data and isinstance(throat_adapter_data, dict):
-        from pyhorn_core.config.models import ThroatAdapter
         data["ap1"] = throat_adapter_data.get("ap1", data.get("ap1", 0.0))
         data["lpt"] = throat_adapter_data.get("lpt", data.get("lpt", 0.0))
         if "type" in throat_adapter_data:
@@ -495,13 +532,11 @@ def parse_horn_geometry(filepath: Path | str | dict) -> HornGeometry:
     # that includes vented_box fields, as in the FastAPI /simulate endpoint)
     vented_box_data = data.get("vented_box")
     if vented_box_data and isinstance(vented_box_data, dict):
-        from pyhorn_core.config.models import VentedBox
         data["vented_box"] = VentedBox(**vented_box_data)
 
     # Handle Slavic rear chamber — nested dict → SlavicBox dataclass
     slavbas_data = data.get("slavbas")
     if slavbas_data and isinstance(slavbas_data, dict):
-        from pyhorn_core.config.models import SlavicBox
         data["slavbas"] = SlavicBox(**slavbas_data)
 
     # Handle rear chamber — nested dict → RearChamber dataclass
@@ -515,7 +550,6 @@ def parse_horn_geometry(filepath: Path | str | dict) -> HornGeometry:
     rear_chamber_data = raw_data.get("rear_chamber")
     horn_rear_chamber = None
     if rear_chamber_data and isinstance(rear_chamber_data, dict):
-        from pyhorn_core.config.models import RearChamber
         horn_rear_chamber = RearChamber(**rear_chamber_data)
 
     try:

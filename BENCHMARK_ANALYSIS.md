@@ -6,8 +6,10 @@ Date: 2026-05-13
 
 This note compares the current pyhorn HiroB benchmark setup against the Hornresp reference files:
 
-- `tests/benchmarks/hornresp_gdb1/hornresp_spl_hirob.csv`
-- `tests/benchmarks/hornresp_gdb1/hornresp_params_hirob.txt`
+- `tests/benchmarks/hornresp/hirob/reference/hornresp_spl.csv`
+- `tests/benchmarks/hornresp/hirob/reference/hornresp_params.txt`
+
+Legacy helper scripts may still live under `tests/benchmarks/hornresp_gdb1/`, but the canonical HiroB benchmark fixture and reference data now live under `tests/benchmarks/hornresp/hirob/`.
 
 The goal was to answer a narrow question: is the remaining HiroB mismatch caused by horn solver logic, or is the benchmark fixture itself no longer aligned with the Hornresp run it is supposed to reproduce?
 

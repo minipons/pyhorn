@@ -1,0 +1,22 @@
+# HiroB benchmark-safe FE166NV2 fixture.
+# This fixture is intentionally benchmark-only: no measured SPL override and no lossy Le.
+fs: 49.6
+qts: 0.27
+qes: 0.28
+qms: 7.88
+vas: 0.0369
+re: 7.8
+bl: 7.79
+mms: 0.00604
+cms: 0.001472
+rms: 0.277
+sd: 0.0132
+le: 0.0008
+xmax: 0.001
+lossy_le: false
+sensitivity_db:
+  - [200,  -0.5]
+  - [500,  -2.0]
+  - [1000, -4.0]
+  - [2000, -6.0]
+  - [5000, -6.0]

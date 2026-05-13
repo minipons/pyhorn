@@ -97,7 +97,7 @@ import numpy as np
 from scipy.special import jv, struve
 
 if TYPE_CHECKING:
-    from pyhorn_core.config.models import DriverSpecs
+    from pyhorn_core.config.driver_models import DriverSpecs
 
 # ─── Physical constants ───────────────────────────────────────────────────────
 RHO = 1.21  # Air density kg/m³
@@ -114,6 +114,7 @@ _MIKI_IMAG_MAX = 0.0
 
 
 # ─── Radiation impedance ────────────────────────────────────────────────────────
+
 
 def _miki_factors(freq: float, sigma: float) -> Tuple[complex, complex]:
     """
@@ -174,16 +175,16 @@ def _circular_piston_radiation_impedance(
     # HISTORICAL BUG NOTE (Fixed May 2026):
     # Previous versions of this function erroneously used the unbaffled pipe
     # limit (ka^4 / 4) for the ka < 0.1 branch, while attempting to use a
-    # squared Bessel function (1 - J1^2) for the high-ka branch. 
-    # This caused a massive mathematical discontinuity at exactly ka = 0.1, 
-    # where R_rad artificially jumped by a factor of ~30,000x. When this 
-    # discontinuity intersected with horn anti-resonances, it caused the real 
-    # part of the throat impedance (Re[Z_throat]) to artificially explode to 
-    # thousands of Ohms, corrupting the final system SPL output with severe 
+    # squared Bessel function (1 - J1^2) for the high-ka branch.
+    # This caused a massive mathematical discontinuity at exactly ka = 0.1,
+    # where R_rad artificially jumped by a factor of ~30,000x. When this
+    # discontinuity intersected with horn anti-resonances, it caused the real
+    # part of the throat impedance (Re[Z_throat]) to artificially explode to
+    # thousands of Ohms, corrupting the final system SPL output with severe
     # jagged spikes.
-    # 
+    #
     # The current implementation correctly uses the exact analytical solutions
-    # (Lord Rayleigh's integrals) for a rigid circular piston in an infinite 
+    # (Lord Rayleigh's integrals) for a rigid circular piston in an infinite
     # baffle across all ka. The ka < 0.1 branch uses the exact Taylor series
     # limits (ka^2 / 2) to prevent precision loss without introducing any
     # discontinuities.
@@ -192,13 +193,13 @@ def _circular_piston_radiation_impedance(
     if ka < 0.1:
         # Levine/Inglis small-ka limit (piston in infinite baffle):
         # R_rad → Zc · (ka)²/2  [O(ka²)]  — not ka⁴ (that is unbaffled-pipe).
-        R_rad = Zc * (ka ** 2) / 2.0
+        R_rad = Zc * (ka**2) / 2.0
         X_rad = Zc * 8.0 * ka / (3.0 * np.pi)
     else:
         # Levine/Inglis: R_rad = Zc·[1 − (J₁(2ka)/(ka))²]
         # Note: the square is essential — this is the Rayleigh integral for a piston
         j1_ratio = jv(1, 2.0 * ka) / ka
-        R_rad = Zc * (1.0 - j1_ratio ** 2)
+        R_rad = Zc * (1.0 - j1_ratio**2)
         X_rad = Zc * struve(1, 2.0 * ka) / ka
 
     R_rad *= (2.0 * np.pi) / ang
@@ -264,6 +265,7 @@ def radiation_impedance(
 
 # ─── Frequency-Dependent Directivity (FDD) ────────────────────────────────────
 
+
 def _fdd_directivity_index(
     freqs: np.ndarray,
     mouth_area: float,
@@ -297,7 +299,7 @@ def _fdd_directivity_index(
     a = np.sqrt(mouth_area / np.pi)
     ka = 2.0 * np.pi * a * freqs / C
 
-    transition = 1.0 - np.exp(-(freqs / f_c) ** 2)
+    transition = 1.0 - np.exp(-((freqs / f_c) ** 2))
     di_linear = D_max * transition
     return np.clip(di_linear, 0.0, D_max)
 
@@ -359,7 +361,7 @@ def _fdd_off_axis_spl(
     # Transition factor: 0 (omni) at low f → 1 (full piston directivity) at HF
     # Uses Hornresp FDD f_c as the characteristic frequency.
     freqs_arr = np.asarray(freqs)
-    transition = 1.0 - np.exp(-(freqs_arr / f_c) ** 2)
+    transition = 1.0 - np.exp(-((freqs_arr / f_c) ** 2))
 
     n_freq = len(freqs)
     n_angles = len(angles)

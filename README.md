@@ -46,14 +46,16 @@ Simulation results (SPL, impedance, group delay, excursion) are written to `outp
 - `source/` — horn geometry source files
 - `tests/` — benchmarks and test suite
 
+Agent-facing repo maps live in `AGENTS.md` and `docs/architecture/`. Use those before widening changes across solver, benchmark, or config surfaces.
+
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| `pyhorn_core.solver.models` | Core TMM horn response |
-| `pyhorn_core.solver.hornresp_parser` | Hornresp `.txt` file parser |
-| `pyhorn_core.config.models` | `DriverSpecs`, `HornGeometry` dataclasses |
-| `pyhorn_core.pyhorn_physics` | Acoustic physics (radiation impedance, rear chamber, etc.) |
+| Package                              | Description                                                |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `pyhorn_core.solver.models`          | Core TMM horn response                                     |
+| `pyhorn_core.solver.hornresp_parser` | Hornresp `.txt` file parser                                |
+| `pyhorn_core.config.models`          | `DriverSpecs`, `HornGeometry` dataclasses                  |
+| `pyhorn_core.pyhorn_physics`         | Acoustic physics (radiation impedance, rear chamber, etc.) |
 
 ## Dependencies
 

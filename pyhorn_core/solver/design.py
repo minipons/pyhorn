@@ -2,7 +2,7 @@
 
 from typing import Any, Mapping, Optional
 
-from pyhorn_core.config.models import HornGeometry
+from pyhorn_core.config.horn_models import HornGeometry
 
 
 def build_horn_from_params(

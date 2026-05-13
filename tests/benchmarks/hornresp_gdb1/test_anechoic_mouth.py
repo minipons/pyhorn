@@ -86,10 +86,10 @@ from pyhorn_core.pyhorn_physics import RHO, C
 import pyhorn_core.pyhorn_physics.orchestrators as _orch
 from scipy.interpolate import interp1d
 
-
-HR_CSV = REPO / "tests/benchmarks/hornresp_gdb1/hornresp_spl_hirob.csv"
-PROJECT = REPO / "projects/hirob.yaml"
-DRIVER = REPO / "drivers/FE166NV2.yaml"
+BENCHMARK_ROOT = REPO / "tests/benchmarks/hornresp/hirob"
+HR_CSV = BENCHMARK_ROOT / "reference/hornresp_spl.csv"
+PROJECT = BENCHMARK_ROOT / "fixture/horn.yaml"
+DRIVER = BENCHMARK_ROOT / "fixture/driver.yaml"
 
 
 def load_hornresp(path):
@@ -114,22 +114,25 @@ def run_comparison():
 
     # Driver without direct SPL override (isolates mouth radiation effect)
     from dataclasses import replace
+
     driver_no_override = replace(driver, spl_response=None)
 
     # Levine/Inglis (default)
-    result_li = horn_response(freqs, driver_no_override, geo,
-                             compute_distortion=False)
+    result_li = horn_response(freqs, driver_no_override, geo, compute_distortion=False)
 
     # Anechoic termination
     geo_an = replace(geo, mouth_radiation="anechoic")
-    result_an = horn_response(freqs, driver_no_override, geo_an,
-                              compute_distortion=False)
+    result_an = horn_response(
+        freqs, driver_no_override, geo_an, compute_distortion=False
+    )
 
     # Interpolate to Hornresp grid
-    py_li = interp1d(log_f, result_li.spl_power_based, kind='linear',
-                     fill_value='extrapolate')(log_hr)
-    py_an = interp1d(log_f, result_an.spl_power_based, kind='linear',
-                     fill_value='extrapolate')(log_hr)
+    py_li = interp1d(
+        log_f, result_li.spl_power_based, kind="linear", fill_value="extrapolate"
+    )(log_hr)
+    py_an = interp1d(
+        log_f, result_an.spl_power_based, kind="linear", fill_value="extrapolate"
+    )(log_hr)
 
     valid = (hr_freqs >= freqs.min()) & (hr_freqs <= freqs.max())
     d_li = py_li[valid] - hr_spls[valid]
@@ -138,22 +141,27 @@ def run_comparison():
     print("Mouth radiation model comparison (no direct SPL override):")
     print(f"{'Band':>15} | {'n'} | {'Levine':>9} | {'Anechoic':>9} | {'Δ(L-A)':>8}")
     print("-" * 56)
-    for lo, hi in [(10, 100), (100, 1000), (1000, 5000),
-                   (5000, 10000), (10000, 20000)]:
+    for lo, hi in [(10, 100), (100, 1000), (1000, 5000), (5000, 10000), (10000, 20000)]:
         m = valid & (hr_freqs >= lo) & (hr_freqs < hi)
         if m.sum() < 3:
             continue
         delta = d_li[m].mean() - d_an[m].mean()
-        print(f"  {lo:5d}-{hi:5d} Hz | {m.sum():3d} | "
-              f"{d_li[m].mean():+8.2f} | {d_an[m].mean():+8.2f} | "
-              f"{delta:+7.2f}")
+        print(
+            f"  {lo:5d}-{hi:5d} Hz | {m.sum():3d} | "
+            f"{d_li[m].mean():+8.2f} | {d_an[m].mean():+8.2f} | "
+            f"{delta:+7.2f}"
+        )
 
-    print(f"\n{'Overall':>16} | {valid.sum():3d} | "
-          f"{d_li.mean():+8.2f} | {d_an.mean():+8.2f} | "
-          f"{d_li.mean()-d_an.mean():+7.2f}")
+    print(
+        f"\n{'Overall':>16} | {valid.sum():3d} | "
+        f"{d_li.mean():+8.2f} | {d_an.mean():+8.2f} | "
+        f"{d_li.mean()-d_an.mean():+7.2f}"
+    )
 
-    print("\nConclusion: Anechoic is WORSE at LF (+3.57 dB excess) and "
-          "identical at HF. Levine/Inglis reflecting-baffle model is correct.")
+    print(
+        "\nConclusion: Anechoic is WORSE at LF (+3.57 dB excess) and "
+        "identical at HF. Levine/Inglis reflecting-baffle model is correct."
+    )
 
 
 if __name__ == "__main__":

@@ -22,11 +22,11 @@ This is the correct physics for a BLH rear chamber — the large sealed box behi
 
 ## Rear Chamber Models
 
-| `chamber_type` | Physics | When to Use |
-|---|---|---|
-| `"sealed"` | Pure compliance: `Z = 1/(jωC)` | Standard sealed box rear load |
-| `"coupling"` | Pure compliance: `Z = 1/(jωC)` | **BLH rear chamber (correct)** — large sealed box coupling the driver to the horn path |
-| `"vented"` | Helmholtz resonator: `Z = 1/(jωC) + jωM` | Bass-reflex box with a port — **not correct for BLH** |
+| `chamber_type` | Physics                                  | When to Use                                                                            |
+| -------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| `"sealed"`     | Pure compliance: `Z = 1/(jωC)`           | Standard sealed box rear load                                                          |
+| `"coupling"`   | Pure compliance: `Z = 1/(jωC)`           | **BLH rear chamber (correct)** — large sealed box coupling the driver to the horn path |
+| `"vented"`     | Helmholtz resonator: `Z = 1/(jωC) + jωM` | Bass-reflex box with a port — **not correct for BLH**                                  |
 
 **Important:** `"vented"` was the default before the CRIT-1 fix. It introduces a mass term that produces catastrophically wrong LF response (−13 to −25 dB vs Hornresp at 20–50 Hz). The `"coupling"` model (no mass term) is the correct physics for a BLH coupling chamber.
 
@@ -64,7 +64,7 @@ In a **coupling** rear chamber (`chamber_type: "coupling"`), `l_rc` is a geometr
 
 ### Step 1 — Acquire Hornresp Reference Data
 
-We need Hornresp output for the `hornresp_gdb1` benchmark at **V = 2.83 V** with:
+We need Hornresp output for the canonical Hornresp benchmark fixture at **V = 2.83 V** with:
 - LF SPL tabulation: 50–200 Hz (1/12-octave or finer)
 - Impedance tabulation: same frequency range
 - At least two rear chamber configurations (different V_rc) to confirm sensitivity
@@ -75,10 +75,10 @@ We need Hornresp output for the `hornresp_gdb1` benchmark at **V = 2.83 V** with
 
 Once Hornresp data arrives, sweep:
 
-| Parameter | Range | Step | Notes |
-|---|---|---|---|
-| `V_rc` | 0.005 – 0.050 m³ | 0.005 m³ (5 mL) | 10 values: 5, 10, 15, … 50 L |
-| `l_rc` | 0.05 – 0.30 m | 0.05 m | 6 values: 5, 10, 15, 20, 25, 30 cm |
+| Parameter | Range            | Step            | Notes                              |
+| --------- | ---------------- | --------------- | ---------------------------------- |
+| `V_rc`    | 0.005 – 0.050 m³ | 0.005 m³ (5 mL) | 10 values: 5, 10, 15, … 50 L       |
+| `l_rc`    | 0.05 – 0.30 m    | 0.05 m          | 6 values: 5, 10, 15, 20, 25, 30 cm |
 
 For each combination, compute **LF SPL deviation** vs Hornresp reference:
 ```
@@ -115,6 +115,8 @@ For **other projects**, the calibration must be re-done with that project's cabi
 ---
 
 ## Current Benchmark: `tests/benchmarks/hornresp_gdb1/`
+
+For HiroB specifically, the canonical benchmark fixture/reference home is now `tests/benchmarks/hornresp/hirob/`; the `hornresp_gdb1` tree remains for the older GdB1 benchmark assets and legacy helper scripts.
 
 ```yaml
 # gdb1_hornresp.yaml — current calibration parameters

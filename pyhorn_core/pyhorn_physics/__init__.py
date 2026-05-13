@@ -172,6 +172,7 @@ Helper Functions (not usually called directly)
    * - ``_smooth_spl_near_artifacts(freqs, spl, artifacts)``
      - Narrow symmetric moving average around flagged artifact bins.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional, Tuple
@@ -191,7 +192,9 @@ from pyhorn_core.pyhorn_physics.radiation import (
 )  # noqa: E402
 
 if TYPE_CHECKING:
-    from pyhorn_core.config.models import DriverSpecs, HornGeometry
+    from pyhorn_core.config.driver_models import DriverSpecs
+    from pyhorn_core.config.horn_models import HornGeometry
+
 
 def tube_segment_tmatrix(
     freq: float, length: float, area: float, fr: float = 0.0
@@ -343,8 +346,7 @@ def _merge_small_throat_segments(
 
     lengths = np.array([seg[0] for seg in segments])
     candidates = [
-        i for i in range(min(n_throat, len(segments)))
-        if lengths[i] < min_len_merge
+        i for i in range(min(n_throat, len(segments))) if lengths[i] < min_len_merge
     ]
 
     if not candidates:
@@ -364,6 +366,7 @@ def _merge_small_throat_segments(
 
 
 # ─── Acoustic Impedance functions ──────────────────────────────────────────────
+
 
 def rear_chamber_impedance(
     freq: float,
@@ -766,6 +769,7 @@ def throat_adapter_tmatrix(
 
 # ─── Driver TMM physics ─────────────────────────────────────────────────────────
 
+
 def _le_freq_dependent(le_const: float, f: float, f_ref: float) -> float:
     """Compute frequency-dependent voice coil inductance Le(f).
 
@@ -859,8 +863,14 @@ def _driver_impedance(
     w = 2.0 * np.pi * f
 
     # Electrical impedance — frequency-dependent Le when enabled
-    le_eff = _le_freq_dependent(driver_le, f, le_f_ref) if le_freq_dependency else driver_le
-    R_lossy = float(_lossy_le_impedance(f, le_R_e_eddy, le_f_lossy_ref).real) if lossy_le else 0.0
+    le_eff = (
+        _le_freq_dependent(driver_le, f, le_f_ref) if le_freq_dependency else driver_le
+    )
+    R_lossy = (
+        float(_lossy_le_impedance(f, le_R_e_eddy, le_f_lossy_ref).real)
+        if lossy_le
+        else 0.0
+    )
     Z_e = driver_re + R_lossy + 1j * w * le_eff
 
     # Mechanical impedance — guard w=0 to avoid numpy complex-inf boxing issue
@@ -895,7 +905,7 @@ def _velocity(P_source: complex, Z_tot: complex) -> complex:
     # Z_tot=inf occurs at DC (f=0) when mechanical impedance dominates.
     # numpy raises "invalid value" warning when dividing by inf; suppress it
     # since the result 0.0j is well-defined and already guarded above for Z_tot≈0.
-    with np.errstate(invalid='ignore'):
+    with np.errstate(invalid="ignore"):
         return P_source / Z_tot
 
 
@@ -934,6 +944,7 @@ def _excursion(x_driver: complex) -> float:
 
 
 # ─── Horn analysis helpers ─────────────────────────────────────────────────────
+
 
 def _is_single_segment_horn(horn: "HornGeometry") -> bool:
     """Return True if the horn has only a single effective segment.
@@ -1030,6 +1041,7 @@ def _compute_second_tone_distortion(
 
 # ─── Post-processing helpers ─────────────────────────────────────────────────────
 
+
 def _apply_notch_filter(
     freqs: np.ndarray,
     spl: np.ndarray,
@@ -1115,9 +1127,8 @@ def _smooth_spl_near_artifacts(
 
 # ─── Infinite baffle response (depends on driver helpers — kept in __init__.py) ──
 
-def infinite_baffle_response(
-    freqs: np.ndarray, driver: "DriverSpecs"
-) -> np.ndarray:
+
+def infinite_baffle_response(freqs: np.ndarray, driver: "DriverSpecs") -> np.ndarray:
     """Calculate the natural SPL response of the bare driver on an infinite baffle."""
     spl_out = np.zeros(len(freqs))
     ang = 2.0 * np.pi  # Half space radiation front and back
@@ -1128,10 +1139,17 @@ def infinite_baffle_response(
         w = 2 * np.pi * f
         Zrad_front = radiation_impedance(f, driver.sd, ang, _Zc=Zc_sd, _a=a_sd)
 
-        le_eff = _le_freq_dependent(driver.le, f, driver.le_f_ref) if driver.le_freq_dependency else driver.le
+        le_eff = (
+            _le_freq_dependent(driver.le, f, driver.le_f_ref)
+            if driver.le_freq_dependency
+            else driver.le
+        )
         R_lossy = (
-            float(_lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real)
-            if driver.lossy_le else 0.0
+            float(
+                _lossy_le_impedance(f, driver.le_R_e_eddy, driver.le_f_lossy_ref).real
+            )
+            if driver.lossy_le
+            else 0.0
         )
         Z_e = driver.re + R_lossy + 1j * w * le_eff
         # Mechanical impedance — guard w=0 to avoid numpy complex-inf boxing issue

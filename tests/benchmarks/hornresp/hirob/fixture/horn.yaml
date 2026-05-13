@@ -1,0 +1,27 @@
+# HiroB benchmark-safe horn fixture.
+# This fixture is independent from projects/hirob.yaml and should stay aligned
+# only with the Hornresp reference files in ../reference/.
+name: "HiroB Benchmark"
+enclosure_type: BLH
+throat_area: 0.0080
+mouth_area: 0.0800
+path_length: 1.430
+n_segments: 500
+profile_type: hyperbolic
+hyperbolic_t: 0.70
+rear_chamber:
+  vrc: 0.00470
+  lrc: 0.100
+  fr_rc: 2000
+  chamber_type: coupling
+throat_chamber:
+  vtc: 0.0
+  atc: 0.0
+  fr_tc: 0
+ap1: 0.01472
+ang: 1.5708
+mouth_radiation: levine
+voltage: 2.83
+notes: |
+  Hornresp benchmark-only HiroB fixture.
+  Keep independent from production projects/hirob.yaml.
