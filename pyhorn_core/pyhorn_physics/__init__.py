@@ -480,25 +480,10 @@ def rear_chamber_impedance(
         return Z_ab
 
     # ── Sealed / closed-tube model (default) ───────────────────────────────
-    Zc_f = 1.0 + 0.0j
-    k_f = 1.0 + 0.0j
-    if fr > 0:
-        Zc_f, k_f = _miki_factors(freq, fr)
-        if length <= 0:
-            length = volume ** (1 / 3)
-
-    if length > 0:
-        area = volume / length
-        k = (w / C) * k_f
-        Zc = (Z0 / area) * Zc_f
-        kL = k * length
-        if np.abs(kL) < 1e-4:
-            Ca = volume / (RHO * C**2)
-            return 1.0 / (1j * w * Ca)
-        return -1j * Zc / np.tan(kL)
-    else:
-        Ca = volume / (RHO * C**2)
-        return 1.0 / (1j * w * Ca)
+    # Pure acoustic compliance: Z_rc = 1 / (j·ω·C_rc)
+    # C_rc = V_rc / (ρ·c²)
+    Ca = volume / (RHO * C**2)
+    return 1.0 / (1j * w * Ca) if w > 0 else 0.0j
 
 
 def slavbas_impedance(
