@@ -1262,6 +1262,9 @@ def _horn_response_impl(
     particle_velocity_port_out = np.zeros(len(freqs))
     acoustic_power_out = np.zeros(len(freqs))
     spl_power_based_out = np.zeros(len(freqs))
+    # Zrad_front_out: pre-allocate for direct-path radiation impedance (half-space).
+    # Used in the measured-SPL override to compute acoustic power from |p_direct|.
+    Zrad_front_out = np.zeros(len(freqs), dtype=complex) if (is_blh or is_tl) else None
     # Pre-compute frequency-dependent sensitivity_db for power-based SPL calibration.
     # Prefer horn.sensitivity_db (project-level calibration from hirob.yaml's
     # sensitivity_db table [[freq, dB], ...]) over driver.sensitivity_db.
@@ -1364,6 +1367,8 @@ def _horn_response_impl(
         throat_impedance_out[idx] = Z_throat
 
         Zrad_front = radiation_impedance(f, driver.sd, horn.ang, _Zc=Zc_sd, _a=a_sd)
+        if Zrad_front_out is not None:
+            Zrad_front_out[idx] = Zrad_front
 
         if horn.vented_box is not None and horn.vrc > 0:
             vb = horn.vented_box
@@ -1783,28 +1788,65 @@ def _horn_response_impl(
             spl_power_based_out[idx] = 0.0
 
     # ── Measured driver SPL override ───────────────────────────────────────
-    # Scale the direct-cone pressure to match the driver's measured SPL curve
+    # Scale the direct-cone level to match the driver's measured SPL curve
     # (captures cone breakup that the lumped TS model cannot predict).
-    # Phase is preserved from the model.  Total pressure and pressure-based
-    # SPL are recomputed.  The "Total" displayed in the response plot is then
-    # power-summed below from this corrected direct + the calibrated dB/W/m
-    # horn-side level (see "Composite Total" block).
+    #
+    # BUG FIX: previously this code scaled direct_pressure_out by a frequency-
+    # dependent factor to match the measured SPL, then added it to horn_pressure
+    # as a complex pressure.  This caused phantom cancellation spikes whenever
+    # the scaled direct pressure had opposite phase to the horn pressure —
+    # the total pressure (and hence SPL) would drop instead of rise, producing
+    # large isolated dB spikes in the HF band (e.g. HiroB at ~14–16 kHz).
+    #
+    # CORRECT approach: use acoustic power summation instead of pressure addition.
+    # The direct and horn paths radiate independently into half-space; their
+    # powers add at the observation point (1 m).  Scaling only adjusts the direct
+    # side's contribution to the total acoustic power — it cannot cancel the horn
+    # contribution because they are summed as powers, not complex pressures.
+    #
+    # OLD (buggy):
+    #   scale = 10^((measured_db - current_db)/20)
+    #   total_pressure = direct * scale + horn_pressure  ← WRONG: complex cancel
+    #   spl = 20*log10(|total_pressure|/p_ref)
+    #
+    # NEW (correct):
+    #   P_direct_new = P_direct * 10^((measured_db - current_db)/10)  ← scale power
+    #   P_total = P_direct_new + P_horn_calibrated
+    #   spl = 10*log10(P_total/p_ref)    (power-based SPL, not pressure-based)
+    #
+    # Power-based SPL formula: P_REF = 10^-12 W gives
+    #   10*log10(P_acoustic/1e-12) = 10*log10(P_acoustic) + 120 dB
+    #
+    # Phase is NOT scaled (phase carries directivity/arrival-time info and should
+    # not be modified by a magnitude-only SPL correction).
     if direct_pressure_out is not None:
         measured_db = driver.get_spl_response(freqs)
         if measured_db is not None:
             current_db = _pressure_to_spl(direct_pressure_out)
             with np.errstate(divide="ignore", invalid="ignore"):
-                scale = np.power(10.0, (measured_db - current_db) / 20.0)
-            direct_pressure_out = direct_pressure_out * scale
-            if horn_pressure_out is not None:
-                total_pressure_out = direct_pressure_out + horn_pressure_out
+                power_scale = np.power(10.0, (measured_db - current_db) / 10.0)
+
+            # P_ref = 10^-12 W; P_direct = |p_direct|^2 / Z_rad_front (Rayleigh far-field)
+            p_direct_sq = np.abs(direct_pressure_out) ** 2
+            Zrad_front_arr = Zrad_front_out if Zrad_front_out is not None else np.full_like(freqs, 1.0)
+            P_direct = np.where(np.abs(Zrad_front_arr) > 1e-12, p_direct_sq / np.abs(Zrad_front_arr), 0.0)
+            P_direct_scaled = P_direct * power_scale
+
+            # P_horn already includes sensitivity_db calibration (applied earlier as
+            # acoustic_power_to_spl_dB_W_m at the power level).  Retrieve it from the
+            # power-based SPL so we can sum powers correctly.
+            #   spl_power_based = 10*log10(P_horn_calibrated / 1e-12) + 120
+            #   → P_horn_calibrated = 10^((spl_power_based - 120) / 10) * 1e-12
+            if spl_power_based_out is not None and np.all(spl_power_based_out > 0):
+                P_horn_calibrated = np.power(10.0, (spl_power_based_out - 120.0) / 10.0) * 1e-12
             else:
-                total_pressure_out = direct_pressure_out
-                
-            new_spl_out = _pressure_to_spl(total_pressure_out)
-            if spl_power_based_out is not None:
-                spl_power_based_out += (new_spl_out - spl_out)
-            
+                P_horn_calibrated = np.zeros_like(freqs, dtype=float)
+
+            P_total = P_direct_scaled + P_horn_calibrated
+            # Only overwrite spl_out with power-based SPL when the measured SPL
+            # correction is active; otherwise keep the pressure-based result.
+            with np.errstate(divide="ignore", invalid="ignore"):
+                new_spl_out = 10.0 * np.log10(np.maximum(P_total, 1e-12) / 1e-12 + 1e-12)
             spl_out = new_spl_out
 
     phase = np.unwrap(np.angle(total_pressure_out))
