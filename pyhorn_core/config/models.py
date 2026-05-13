@@ -199,6 +199,43 @@ class HornGeometry:
         default=None, init=False, repr=False
     )
 
+    # ─── Expand sections into flat format ─────────────────────────────────────
+
+    def __post_init__(self) -> None:
+        """Expand ``sections`` high-level DSL into ``conical_segments`` for the TMM solver.
+
+        The ``sections`` format lets callers describe a chained horn as a list of
+        named profile sections (each with its own profile_type, length, start/end areas).
+        The TMM solver only knows about ``conical_segments`` / ``rectangular_segments``,
+        so this hook auto-expands ``sections`` on ``HornGeometry`` construction.
+        """
+        if self.sections is None or self.conical_segments is not None:
+            return
+        expanded: List[Tuple[float, ...]] = []
+        for sec in self.sections:
+            # Conical segment: (height_start_m, height_end_m, length_m)
+            # heights are diameters derived from circular cross-section areas
+            h_start = 2.0 * math.sqrt(max(sec.start_area, 1e-12) / math.pi)
+            h_end = 2.0 * math.sqrt(max(sec.end_area, 1e-12) / math.pi)
+            expanded.append((h_start, h_end, sec.length))
+            # Carry profile type from section into HornGeometry so the solver sees it
+            if self.profile_type is None and sec.profile_type is not None:
+                self.profile_type = sec.profile_type
+            # Carry hyperbolic_t from section (only relevant for "hyperbolic" profile)
+            if sec.hyperbolic_t is not None and self.hyperbolic_t == 1.0:
+                self.hyperbolic_t = sec.hyperbolic_t
+        if expanded:
+            self.conical_segments = expanded
+            # Sections are already discretised — clear profile_type so the solver
+            # uses conical_segments directly instead of re-discretising via
+            # discretise_profile() (which would use path_length=0 and fail).
+            self.profile_type = None
+            # Also populate flat fields from sections for code that reads them directly
+            if self.throat_area == 0.0:
+                self.throat_area = self.sections[0].start_area
+            if self.mouth_area == 0.0:
+                self.mouth_area = self.sections[-1].end_area
+
     def geometry_diagnostics(self) -> Dict[str, float]:
         """Return basic geometry diagnostics for folded-horn inspection."""
         diagnostics: Dict[str, float] = {}
