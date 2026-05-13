@@ -506,12 +506,17 @@ def parse_horn_geometry(filepath: Path | str | dict) -> HornGeometry:
 
     # Handle rear chamber — nested dict → RearChamber dataclass
     # Supports rear_chamber: {vrc: ..., lrc: ..., fr_rc: ..., fr_tuning: ..., chamber_type: "vented"|"sealed"}
-    rear_chamber_data = data.get("rear_chamber")
+    #
+    # NOTE: this extraction must happen BEFORE the horn_fields filter (below), because
+    # HornGeometry has no 'rear_chamber' dataclass field — so the filter would discard
+    # it before we could process it.  We therefore read from `raw` (for file path) or
+    # `filepath` (for dict input) directly, bypassing the filtered `data`.
+    raw_data = _load_file(filepath) if not isinstance(filepath, dict) else filepath
+    rear_chamber_data = raw_data.get("rear_chamber")
     horn_rear_chamber = None
     if rear_chamber_data and isinstance(rear_chamber_data, dict):
         from pyhorn_core.config.models import RearChamber
         horn_rear_chamber = RearChamber(**rear_chamber_data)
-        data.pop("rear_chamber", None)  # HornGeometry has no rear_chamber field
 
     try:
         horn = HornGeometry(**data)
