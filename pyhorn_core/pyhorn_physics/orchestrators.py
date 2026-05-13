@@ -1730,7 +1730,11 @@ def _horn_response_impl(
         # The direct-radiation acoustic power is added uncalibrated.
         p_acoustic_horn_cal = p_ac_mouth * 10 ** (sensitivity_at_freqs[idx] / 10.0)
         p_acoustic = p_acoustic_horn_cal + p_acoustic_direct
-
+        # NOTE: efficiency_out uses p_acoustic (total: calibrated horn + uncalibrated
+        # direct) — this is correct. acoustic_power_out uses p_ac_mouth (mouth-only,
+        # for SPL correlation with the acoustic_power field). These are intentionally
+        # different: efficiency = total acoustic power out / electrical power in, while
+        # acoustic_power_out is the specific mouth radiation power used for SPL reporting.
         efficiency_out[idx] = (100.0 * p_acoustic / p_elec) if p_elec > 1e-12 else 0.0
         electrical_input_power_out[idx] = p_elec
         acoustic_power_out[idx] = (

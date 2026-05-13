@@ -29,6 +29,12 @@ hyperbolic_t: 0.70
 # ── Rear chamber (lined closed rear) ─────────────────────────────────────
 # Lined with 4 cm mineral wool (fr=2000 Rayls/m)
 # Vrc=4.7 L, Lrc=100 mm acoustic length
+#
+# BUG FIX (rear-chamber-sealed-box-model): Changed chamber_type from "sealed"
+# to "coupling". For a BLH the rear chamber acts as a coupling chamber (pure
+# stiffness, no mass resonance). The old "sealed" model used the Miki lossy
+# closed-tube formula which introduced a frequency-dependent resistive term
+# from the damping material, creating a +10 dB boost at 20 Hz vs Hornresp.
 rear_chamber:
   vrc: 0.00470    # m³ — 4.7 litres
   lrc: 0.100      # m — 100 mm acoustic length

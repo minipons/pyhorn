@@ -1,14 +1,18 @@
 """pyhorn CLI entry point — assembles all command groups."""
 
 import math
+from importlib.metadata import PackageNotFoundError, version
 from typing import Optional
 
 import typer
 
 try:
-    from pyhorn import __version__
-except ImportError:
-    __version__ = "0.1.0"
+    __version__ = version("pyhorn")
+except PackageNotFoundError:
+    try:
+        __version__ = version("pyhorn_cli")
+    except PackageNotFoundError:
+        __version__ = "0.1.0"
 
 from pyhorn_cli.cli.core_commands import calculate, compare, derive_ts
 from pyhorn_cli.cli.design_wizard import (
