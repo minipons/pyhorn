@@ -1,0 +1,145 @@
+Metadata-Version: 2.4
+Name: pyhorn_core
+Version: 0.1.0
+Summary: Headless acoustic horn loudspeaker simulator — core library
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: scipy>=1.10.0
+Requires-Dist: matplotlib>=3.7.0
+Requires-Dist: pyyaml>=6.0.0
+
+# pyhorn_core — Acoustic Horn Simulator Core Library
+
+Headless acoustic horn loudspeaker simulator — core physics and numerics only, no CLI or UI dependencies.
+
+**Headless** means it has no GUI and no command-line interface. It is a library you import from Python scripts or a REST API (e.g. [pyhorn_ui](https://github.com/gdebyser/pyhorn_ui)).
+
+## What it does
+
+Computes SPL, electrical impedance, excursion, group delay, and phase for front-loaded (FLH) and back-loaded (BLH) horns using transfer-matrix methods (TMM) with Miki (1990) frequency-dependent absorption.
+
+## Packages
+
+| Package | Contents |
+|---------|----------|
+| `pyhorn_core.solver` | Physics engine: TMM solver, profile functions, folding, Hornresp parser, optimizer |
+| `pyhorn_core.config` | `DriverSpecs` / `HornGeometry` dataclasses, YAML/JSON parser |
+| `pyhorn_core.output` | CSV/JSON exporter, matplotlib plotting |
+| `pyhorn_core.registry` | Flat-file registry at `~/.pyhorn/` |
+
+## Quick start
+
+```python
+from pyhorn_core import parse_driver_specs, parse_horn_geometry
+from pyhorn_core.solver.models import horn_response
+import numpy as np
+
+# Load driver and horn geometry from YAML files
+driver = parse_driver_specs("drivers/FE166NV2.yaml")
+horn   = parse_horn_geometry("source/bk16.yaml")
+
+# Simulate
+freqs = np.logspace(1.5, 4.0, 500)  # 30 Hz – 10 kHz
+result = horn_response(freqs, driver, horn)
+# result.spl           → dB SPL array
+# result.z_real        → electrical resistance (ohms)
+# result.excursion_mm  → driver excursion (mm)
+```
+
+## Main functions
+
+### `parse_driver_specs(filepath)`
+
+Parses a driver YAML/JSON file into a `DriverSpecs` dataclass (Thiele-Small parameters). Accepts `.yaml` and `.json` files.
+
+```python
+from pyhorn_core import parse_driver_specs
+
+driver = parse_driver_specs("path/to/FE166NV2.yaml")
+# driver.fs   → resonant frequency (Hz)
+# driver.qts  → total Q
+# driver.vas  → equivalent compliance volume (m³)
+# driver.sd   → piston area (m²)
+# ... and more (see DriverSpecs in config/models.py)
+```
+
+### `parse_horn_geometry(filepath)`
+
+Parses a horn geometry YAML/JSON file into a `HornGeometry` dataclass. Handles both legacy single-profile format and the new chained `sections` format.
+
+```python
+from pyhorn_core import parse_horn_geometry
+
+horn = parse_horn_geometry("path/to/bk16.yaml")
+# horn.throat_area  → initial throat area (m²)
+# horn.mouth_area   → final mouth area (m²)
+# horn.path_length  → total path length (m)
+# horn.sections     → List[Section] (if using sections format)
+```
+
+### `parse_horn_project(filepath)`
+
+Parses a project YAML which references a separate geometry file. Applies project-level overrides (driver coordinate, fold plot segments, rear chamber, throat chamber, vented box, passive radiator).
+
+```python
+from pyhorn_core.config.parser import parse_horn_project
+
+proj, horn = parse_horn_project("projects/my_horn.yaml")
+# proj.name              → project name
+# horn                    → HornGeometry with overrides applied
+```
+
+### `horn_response(freqs, driver, horn, ...)`
+
+Runs the TMM simulation and returns a `SimulationResult`. See `pyhorn_core/solver/models.py` for full signature.
+
+## Chained profile sections
+
+For complex folded horns, the `sections` field chains multiple profile segments together, each with its own profile type, length, and area transition:
+
+```yaml
+sections:
+  - name: segment_1
+    profile_type: exponential
+    start_area: 0.00947   # m²
+    end_area: 0.0142      # m²
+    length: 0.492         # m
+  - name: segment_2
+    profile_type: exponential
+    start_area: 0.0142
+    end_area: 0.0224
+    length: 0.146
+  - name: segment_3
+    profile_type: straight   # constant-area passage
+    start_area: 0.0224
+    end_area: 0.0224
+    length: 0.072
+```
+
+Each `Section` accepts:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `str` | Segment label |
+| `profile_type` | `str` | `exponential`, `straight`, `conical`, `hyperbolic`, `catenoidal`, `parabolic` |
+| `start_area` | `float` | Cross-sectional area at the segment start (m²) |
+| `end_area` | `float` | Cross-sectional area at the segment end (m²) |
+| `length` | `float` | Segment path length (m) |
+| `hyperbolic_t` | `float` | Miki hyperbolic parameter (only for `hyperbolic` profile type) |
+
+**Loading a horn with sections:**
+
+```python
+from pyhorn_core import parse_horn_geometry
+
+horn = parse_horn_geometry("source/bk16_mk1.yaml")
+# horn.sections → List[Section]
+```
+
+`HornGeometry.sections` is the preferred format for new designs. It supports all standard profile functions and geometry-aware discretisation.
+
+## Dependencies
+
+numpy, scipy, matplotlib, pyyaml

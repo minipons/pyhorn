@@ -1,0 +1,27 @@
+# Sample Tapped Horn (TH mode) geometry
+# Driver: Fostex FE166NV2
+# TH mode: driver at S2, rear load = rear chamber
+#
+# Topology:
+#   [Rear of driver] ←→ [Rear chamber Vrc=35L]
+#        ↓ (driver coupling at S2)
+#   [S2 = tap point] ←→ [Exponential horn S2→mouth, L=1.2m]
+#        ↓ (horn mouth radiation)
+
+tap_segment_index: 2  # TH mode (S2)
+rear_load_type: rear_chamber  # rear_chamber | free_space | infinite_baffle
+
+front_sections:
+  - name: horn_proper
+    profile_type: exponential
+    start_area: 0.01327   # S2 = driver Sd (m²) = 132.7 cm²
+    end_area: 0.10         # mouth area (m²) = 1000 cm²
+    length: 1.2           # path length S2→mouth (m)
+
+rear_chamber:
+  vrc: 0.035              # 35 litres
+  lrc: 0.15               # 15 cm
+  fr_rc: 0.0              # no damping material
+
+ang: 6.283185307          # 2π = half-space radiation
+n_segments: 100

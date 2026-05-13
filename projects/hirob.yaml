@@ -1,0 +1,62 @@
+# HiroB — Fostex FE166NV2 back-loaded horn (BKHiro mk2)
+# Derived from BKHiro (projects/bkhiro.yaml)
+#
+# Key changes from BKHiro:
+#   - S1=80→S2=800 cm² (10× expansion, L=1430mm, T=0.7 hyperbolic)
+#   - Larger rear chamber: Vrc=4.7L, Lrc=100mm (lined closed rear)
+#   - Vtc=0, Atc=0 (no throat chamber — direct driver-to-horn coupling)
+#   - AT=1.84 cm² throat adapter area
+#
+# Cabinet: H780×W288×D385 mm (external), fits 2400×1200 MDF board
+# Internal horn width: 224 mm (fixed air width, same as BKHiro)
+
+name: "HiroB"
+geometry_path: hirob_horn.yaml
+
+driver_coord: [0.01, 0.163]   # (x, y) driver at throat level
+width: 0.224                   # internal horn width (224 mm = 7×32 mm MDF layers)
+
+enclosure: [0.288, 0.385]    # W×D (mm) — 288 mm wide, 385 mm deep
+height: 0.780                  # H (m) — 780 mm tall
+
+material: "mdf"
+thickness: 0.032              # 32 mm MDF walls
+
+# ── Rear chamber (lined closed rear) ─────────────────────────────────────
+# Lined with 4 cm mineral wool (Tal=4cm, resistivity=2000 mks rayls/m)
+# Vrc=4.7L, Lrc=100mm acoustic length
+rear_chamber:
+  vrc: 0.00470      # volume (m³) — 4.7 litres
+  lrc: 0.100        # acoustic length (m) — 100 mm
+  fr_rc: 2000        # flow resistivity of lining (Rayls/m) — mineral wool
+  chamber_type: sealed  # lined closed rear chamber
+
+# ── Throat chamber ───────────────────────────────────────────────────────
+# Vtc=0, Atc=0 — no throat chamber in HiroB (direct driver-to-horn)
+throat_chamber:
+  vtc: 0.0         # zero volume — no throat chamber
+  atc: 0.0         # zero area — no throat constriction
+  fr_tc: 4000
+
+# ── Throat adapter ─────────────────────────────────────────────────────
+ap1: 0 # throat adapter area (m²) — 1.84 cm²
+
+# ── Horn geometry ────────────────────────────────────────────────────────
+# From Hornresp: S1=80cm², S2=800cm², L=1430mm, T=0.7, hyperbolic
+throat_area: 0.0080    # 80 cm²
+mouth_area: 0.0800     # 800 cm²
+path_length: 1.430      # 1430 mm total acoustic path
+profile_type: hyperbolic
+hyperbolic_t: 0.70     # T=0.7 hyperbolic
+segments: 30
+
+
+notes: |
+  HiroB: BKHiro mk2 with revised geometry.
+  Enclosure: H780xW288xD385 mm.
+  Internal horn width: 224mm (fixed air).
+  Horn: S1=80cm², S2=800cm², T=0.7, L=1430mm.
+  Rear chamber: Vrc=4.7L, Lrc=100mm, lined closed (Tal=4cm, fr=2000 Rayls/m).
+  Vtc=0, Atc=0 (no throat chamber — direct driver-to-horn coupling).
+  AT=1.84 cm² (throat adapter).
+  Driver: Fostex FE166NV2.

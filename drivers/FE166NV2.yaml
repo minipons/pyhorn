@@ -1,0 +1,37 @@
+# Fostex FE166NV2
+fs: 49.6
+qts: 0.27
+qes: 0.28
+qms: 7.88
+vas: 0.0369
+re: 7.8
+bl: 7.79
+mms: 0.00699
+cms: 0.001472
+rms: 0.277
+sd: 0.0132
+le: 0.0008
+xmax: 0.001
+
+
+# HornResp driver detail
+
+# Sd=131.7
+# Bl=7.7
+# Cms=1500.0E-06
+# Rms=0.28
+# Mmd=5.9
+# Le=0.8
+# Re=7.8
+# Pmax=65
+# Xmax=0.1
+# Re'=0.00
+# Leb=0.00
+# Le=0.00
+# Ke=0.00
+# Rss=0.00
+# Rms=0.00
+# Ams=0.00
+# LossyLe=0
+# SemiInductance=0
+# Damping=0

@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyhorn"
+version = "0.1.0"
+description = "Acoustic horn loudspeaker simulator — core solver + CLI"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Guillaume de Boyer-Montegut" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Audio Engineers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Audio",
+    "Topic :: Scientific/Engineering",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "matplotlib>=3.7.0",
+    "pyyaml>=6.0.0",
+    "typer>=0.9.0",
+    "shapely>=2.0.0",
+    "networkx>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "fastapi>=0.100.0",
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+pyhorn = "pyhorn_cli.main:run"
+
+[project.urls]
+Homepage = "https://github.com/geopan/pyhorn"
+Repository = "https://github.com/geopan/pyhorn"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyhorn_core*", "pyhorn_cli*"]
+exclude = ["tests", "tests.*", "pyhorn_core.pyhorn_physics", "pyhorn_core.egg-info"]
+
+[tool.pytest.ini_options]
+testpaths = ["pyhorn_core/tests", "pyhorn_cli/tests", "tests/benchmarks"]
+addopts = "-q --tb=short"

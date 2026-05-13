@@ -1,0 +1,42 @@
+# BKHiro — Fostex FE166NV2 back-loaded horn (scaled-up Hiro)
+# Geometry is auto-regenerated from Onshape; chamber params here survive regens.
+#
+# BKHiro master design:
+#   2400×280mm tall cabinet, 8 expanding stair steps,
+#   straight throat 1500mm + 300mm horn path.
+#   Fits single 2400×1200 MDF sheet.
+#
+# Derived from: projects/hiro.yaml (same driver, scaled geometry)
+
+name: "BKHiro"
+geometry_path: ../source/bkhiro.yaml
+
+driver_coord: [0.01, 0.163]   # (x, y) driver at throat level — chest height ~630 mm
+width: 0.224                   # internal horn width (224 mm = 7×32 mm MDF layers)
+
+enclosure: [0.288, 0.380]     # W×D (mm) — 288 mm wide, 380 mm deep
+
+material: "mdf"
+
+thickness: 0.032              # 32 mm MDF walls (7 layers × 32 mm = 224 mm internal width)
+
+# ── Rear chamber (large sealed box behind the driver) ──────────────────────
+# 12 cm × 15 cm × 20 cm = 3.6 L  (scaled from Hiro's 3.24 L)
+rear_chamber:
+  vrc: 0.00360     # volume (m³)
+  lrc: 0.20        # average acoustic length (m) — 20 cm box depth
+  fr_rc: 2000      # flow resistivity of damping (Rayls/m) — wool/felt
+  chamber_type: coupling  # BLH coupling chamber: pure stiffness (no resonance peak)
+  width: 0.12      # m — for 2D schematic
+  height: 0.15     # m — for 2D schematic
+  depth: 0.20      # m — for 2D schematic
+
+# ── Throat chamber (tiny sealed volume at horn throat) ───────────────────
+# Driver → throat chamber → horn path → mouth
+# Same as Hiro: 2.2 cm × 2.0 cm opening, ~2 cm deep → 8.8 cL
+throat_chamber:
+  vtc: 0.000088    # volume (m³) — tiny sealed back-volume
+  atc: 0.0044      # cross-sectional area at throat (m²) — matches driver Sd
+  fr_tc: 5000      # flow resistivity of damping (Rayls/m) — mineral wool
+
+notes: "Fostex FE166NV2 in BKHiro BLH cabinet. Scaled-up Hiro: 224 mm internal width, straight throat 1500 mm + 300 mm flare. Fits single 2400×1200 MDF sheet."

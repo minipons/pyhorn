@@ -1,0 +1,17 @@
+ang: 1.5708
+ap1: 0.008
+atc: 0.008
+enclosure_dims:
+- 0.3
+- 0.6
+enclosure_type: BLH
+fr_tc: 2000
+hyperbolic_t: 0.35
+lpt: 0.0
+mouth_area: 0.06
+n_segments: 50
+path_length: 1.53
+profile_type: hyperbolic
+throat_area: 0.008
+vtc: 0.00016
+width: 0.3

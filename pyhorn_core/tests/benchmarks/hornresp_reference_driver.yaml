@@ -1,0 +1,21 @@
+# Hornresp reference driver
+# Mmd=6.12g per Hornresp reference (not FE166NV2 spec Mmd=6.99g)
+# Thiele-Small params from FE166NV2 (required by pyhorn DriverSpecs)
+# All other parameters match Hornresp reference values
+
+fs: 49.6       # Hz — resonance frequency (FE166NV2)
+qts: 0.27      # — total Q (FE166NV2)
+qes: 0.28      # — electrical Q (FE166NV2)
+qms: 7.88      # — mechanical Q (FE166NV2)
+vas: 0.0369    # m³ — equivalent volume (FE166NV2, converted from 36.9L)
+
+re: 7.80       # Ohms
+bl: 7.80       # N/A  (Hornresp value, FE166NV2=7.79)
+cms: 1.47e-3   # m/N — compliance (Hornresp=1.47E-03)
+
+# Mmd=6.12g per Hornresp (NOT FE166NV2 spec 6.99g)
+mms: 0.00612   # kg — moving mass (Hornresp Mmd, converted from 6.12g)
+
+rms: 0.28      # kg/s — mechanical resistance (Hornresp value)
+sd: 0.01327    # m² — piston area (Hornresp=132.70cm²)
+le: 0.00080    # H — voice coil inductance (Hornresp=0.80mH)
