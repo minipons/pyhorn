@@ -80,6 +80,11 @@ def calculate(
         help="Include second tone distortion panel (SPL(2f) - SPL(f) dB below fundamental) in response_plot.png. "
         "Only computed for single-segment horns.",
     ),
+    spl_only: bool = typer.Option(
+        False,
+        "--spl-only",
+        help="Generate a single-panel SPL plot only (no impedance, excursion, or other panels).",
+    ),
     distortion: bool = typer.Option(
         True,
         "--distortion/--no-distortion",
@@ -943,6 +948,7 @@ def calculate(
             show_spectrogram=spectrogram,
             spectrogram_window_ms=spectrogram_window_ms,
             spectrogram_overlap=spectrogram_overlap,
+            plot_spl_only=spl_only,
         )
         typer.echo(f"Generated plot at {plot_path}")
 

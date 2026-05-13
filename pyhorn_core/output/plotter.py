@@ -88,6 +88,7 @@ def plot_simulation_results(
     show_spectrogram: bool = False,
     spectrogram_window_ms: float = 50.0,
     spectrogram_overlap: float = 0.5,
+    plot_spl_only: bool = False,
 ) -> None:
     """
     Generate and save a multi-panel figure with SPL, Impedance, Excursion, Phase,
@@ -119,7 +120,41 @@ def plot_simulation_results(
                 Smaller → better time resolution, worse frequency resolution.
 
     spectrogram_overlap: fraction of overlap between STFT windows (default 0.5 = 50%).
+
+    plot_spl_only: when True, generates a single-panel SPL plot (no impedance,
+                excursion, phase, or other panels). Useful for quick inspection.
     """
+    # ── SPL-only single-panel shortcut ────────────────────────────────────────
+    if plot_spl_only:
+        fig, ax = plt.subplots(figsize=(10, 5))
+        freqs = result.freqs
+        if output_mode == "horn" and result.horn_spl is not None:
+            ax.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linewidth=0.9, label="Horn")
+            if result.spl is not None:
+                ax.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
+        elif output_mode == "element" and result.direct_spl is not None:
+            ax.semilogx(freqs, result.direct_spl, color=_COLORS["direct"], linewidth=0.9, label="Direct radiator")
+            if result.spl is not None:
+                ax.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.5, linestyle="--", label="Total (ref)", alpha=0.7)
+        else:
+            ax.semilogx(freqs, result.spl, color=_COLORS["spl"], linewidth=0.9, label="Total")
+            if result.direct_spl is not None:
+                ax.semilogx(freqs, result.direct_spl, color=_COLORS["direct"], linestyle="--", linewidth=0.7, label="Direct (cone)", alpha=0.7)
+            if result.horn_spl is not None:
+                ax.semilogx(freqs, result.horn_spl, color=_COLORS["horn"], linestyle="--", linewidth=0.7, label="Horn", alpha=0.7)
+        if hasattr(result, "ib_spl") and result.ib_spl is not None:
+            ax.semilogx(freqs, result.ib_spl, color=_COLORS["reference"], linestyle=":", linewidth=0.7, label="Infinite Baffle")
+        if target_spl is not None:
+            ax.axhline(target_spl, color=_COLORS["target"], linestyle="--", linewidth=0.7, label=f"Target ({target_spl:.1f} dB)")
+        ax.legend(fontsize=8, framealpha=0.6, edgecolor="none")
+        ymax = np.max(result.spl)
+        ax.set_ylim(bottom=max(40, ymax - 50), top=ymax + 10)
+        _apply_style(ax, xlabel="Frequency (Hz)", ylabel="SPL (dB @ 1W/1m)", freq_axis=True)
+        fig.tight_layout()
+        fig.savefig(output_path, dpi=150)
+        plt.close(fig)
+        return
+
     _has_wf_polar = (
         wavefront_grid is not None
         and wf_mesh_x is not None
