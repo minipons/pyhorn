@@ -149,8 +149,19 @@ def plot_simulation_results(
         if target_spl is not None:
             ax.axhline(target_spl, color=_COLORS["target"], linestyle="--", linewidth=0.7, label=f"Target ({target_spl:.1f} dB)")
         ax.legend(fontsize=8, framealpha=0.6, edgecolor="none")
-        ymax = np.max(result.spl)
-        ax.set_ylim(bottom=max(40, ymax - 50), top=ymax + 10)
+        # ylim must encompass ALL visible curves, not just result.spl
+        all_spls = [result.spl]
+        if result.direct_spl is not None:
+            all_spls.append(result.direct_spl)
+        if result.horn_spl is not None:
+            all_spls.append(result.horn_spl)
+        if result.spl_power_based is not None:
+            all_spls.append(result.spl_power_based)
+        if hasattr(result, "ib_spl") and result.ib_spl is not None:
+            all_spls.append(result.ib_spl)
+        ymax = max(np.max(s) for s in all_spls)
+        ymin = min(np.min(s) for s in all_spls)
+        ax.set_ylim(bottom=max(40, ymin - 10), top=ymax + 10)
         _apply_style(ax, xlabel="Frequency (Hz)", ylabel="SPL (dB @ 1W/1m)", freq_axis=True)
         fig.tight_layout()
         fig.savefig(output_path, dpi=150)
