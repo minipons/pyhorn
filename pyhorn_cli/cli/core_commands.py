@@ -13,6 +13,8 @@ from pyhorn_core.config.parser import (
     parse_horn_geometry,
     parse_horn_project,
 )
+from pyhorn_core.config.horn_models import HornGeometry
+from pyhorn_core.config.project_models import HornProject
 from pyhorn_core.solver.models import horn_response, RHO, C
 from pyhorn_core.solver.profiles import _solve_hyperbolic_u
 from pyhorn_core.output.plotter import (
@@ -280,14 +282,14 @@ def calculate(
     benchmark: bool = typer.Option(
         False,
         "--benchmark",
-        help="Run the Hornresp FLH reference benchmark. "
-        "Automatically loads tests/benchmarks/hornresp_reference_project.yaml "
+        help="Run the canonical HiroB Hornresp benchmark fixture. "
+        "Automatically loads tests/benchmarks/hornresp/hirob/fixture/horn.yaml "
         "and prints a comparison banner.",
     ),
     benchmark_project: Optional[Path] = typer.Option(
         None,
         "--benchmark-project",
-        help="Path to a custom benchmark project YAML. "
+        help="Path to a custom benchmark horn YAML. "
         "Implies --benchmark when provided.",
     ),
     path_length_diff: Optional[float] = typer.Option(
@@ -385,25 +387,28 @@ def calculate(
     if benchmark or benchmark_project is not None:
         benchmark_proj_path = benchmark_project
         if benchmark_proj_path is None:
-            # Default: use the bundled Hornresp FLH reference project
+            # Default: use the canonical HiroB benchmark horn fixture
             benchmark_proj_path = (
                 Path(__file__).parent.parent.parent
                 / "tests"
                 / "benchmarks"
-                / "hornresp_reference_project.yaml"
+                / "hornresp"
+                / "hirob"
+                / "fixture"
+                / "horn.yaml"
             )
         typer.secho(
             "\n"
             "╔══════════════════════════════════════════════════════════════╗\n"
-            "║  Running benchmark: Hornresp FLH reference comparison       ║\n"
-            "║  Reference: Hornresp FLH — S1=40cm², S2=300cm², F12=50Hz ║\n"
+            "║  Running benchmark: HiroB Hornresp comparison              ║\n"
+            "║  Reference: tests/benchmarks/hornresp/hirob/reference     ║\n"
             "╚══════════════════════════════════════════════════════════════╝\n",
             fg=typer.colors.CYAN,
         )
-        typer.echo(f"  Benchmark project: {benchmark_proj_path}")
+        typer.echo(f"  Benchmark horn: {benchmark_proj_path}")
         if project_config is None and horn_config is None:
-            project_config = benchmark_proj_path
-            typer.echo("  Auto-setting --project from benchmark project.")
+            horn_config = benchmark_proj_path
+            typer.echo("  Auto-setting --horn from benchmark fixture.")
         else:
             typer.secho(
                 "  Note: --project or --horn already specified; using those instead.",
@@ -411,6 +416,9 @@ def calculate(
             )
 
     # ── 1. Parse configurations ─────────────────────────────────────────────────
+    horn: Optional[HornGeometry] = None
+    project: Optional[HornProject] = None
+    horn_name: str = ""
     try:
         driver = parse_driver_specs(driver_config)
 
@@ -437,6 +445,8 @@ def calculate(
     except Exception as e:
         typer.secho(f"Error loading configurations: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+    assert horn is not None
 
     # ── Override path_length_difference (CLI flag takes precedence over YAML) ──
     if (
@@ -539,13 +549,14 @@ def calculate(
                 f"T={voice_coil_temp:.0f}°C (nominal Re={driver.re:.2f} Ω at 20°C)",
                 fg="yellow",
             )
-            typer.secho(
-                f"  Compression dB: "
-                f"avg={np.mean(result.thermal_compression_db):.2f}, "
-                f"max={np.min(result.thermal_compression_db):.2f} dB "
-                f"(most compressed frequency)",
-                fg="yellow",
-            )
+            if result.thermal_compression_db is not None:
+                typer.secho(
+                    f"  Compression dB: "
+                    f"avg={np.mean(result.thermal_compression_db):.2f}, "
+                    f"max={np.min(result.thermal_compression_db):.2f} dB "
+                    f"(most compressed frequency)",
+                    fg="yellow",
+                )
 
     # 4. Compute off-axis SPL if requested (piston directivity at horn mouth)
     off_axis_spl: Optional[dict] = None
@@ -1005,7 +1016,7 @@ def calculate(
         typer.echo(f"Saved report to {report_path}")
 
     # ── Thermal Power Compression Report ──────────────────────────────────────
-    if thermal_compression and result.thermal_compression_db is not None:
+    if thermal_compression and result.thermal_compression_db is not None and voice_coil_temp is not None:
         tcdb = result.thermal_compression_db
         alpha = getattr(driver, "alpha_re", 0.00393)
         re_hot = driver.re * (1.0 + alpha * (voice_coil_temp - 20.0))

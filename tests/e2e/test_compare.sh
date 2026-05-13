@@ -2,7 +2,8 @@
 # E2E test: compare command
 set -e -x
 
-WORKDIR="${WORKDIR:-/Users/guillaume/P/GdB1}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="${WORKDIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 cd "$WORKDIR"
 
 OUTDIR="/tmp/test_compare_out"
@@ -10,9 +11,9 @@ rm -rf "$OUTDIR"
 
 # Run compare with the same horn twice (should produce overlay)
 pyhorn compare \
-  pyhorn_core/tests/benchmarks/hornresp_reference_flh.yaml \
-  pyhorn_core/tests/benchmarks/hornresp_reference_flh.yaml \
-  -d pyhorn_core/tests/benchmarks/hornresp_reference_driver.yaml \
+  tests/benchmarks/hornresp/hirob/fixture/horn.yaml \
+  tests/benchmarks/hornresp/hirob/fixture/horn.yaml \
+  -d drivers/FE166NV2.yaml \
   -o "$OUTDIR"
 
 echo "Exit code: $?"

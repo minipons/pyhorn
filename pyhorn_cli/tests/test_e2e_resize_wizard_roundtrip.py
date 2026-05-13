@@ -10,25 +10,24 @@ from __future__ import annotations
 import csv
 import math
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-# The pyhorn CLI is installed as a standalone entry-point script (not as a
-# module). Use it directly so we pick up the correct Python interpreter.
-PYHORN_CLI = "/opt/homebrew/bin/pyhorn"
+PYHORN_CLI = [sys.executable, "-m", "pyhorn_cli.main"]
 
-WORKDIR = Path("/Users/guillaume/pyhorn")
-DRIVER_YAML = WORKDIR / "pyhorn_core/tests/benchmarks/hornresp_reference_driver.yaml"
-HORN_YAML = WORKDIR / "pyhorn_core/tests/benchmarks/hornresp_reference_flh.yaml"
+WORKDIR = Path(__file__).resolve().parents[2]
+DRIVER_YAML = WORKDIR / "drivers" / "FE166NV2.yaml"
+HORN_YAML = (
+    WORKDIR / "tests" / "benchmarks" / "hornresp" / "hirob" / "fixture" / "horn.yaml"
+)
 
 
 class TestResizeWizardRoundtrip:
     """resize-wizard output must be simulatable via `calculate`."""
 
-    def test_resize_wizard_output_feeds_calculate(
-        self, tmp_path: Path
-    ) -> None:
+    def test_resize_wizard_output_feeds_calculate(self, tmp_path: Path) -> None:
         """
         Run resize-wizard then calculate; verify:
           1. Both commands exit 0
@@ -42,12 +41,17 @@ class TestResizeWizardRoundtrip:
         # Step 1: resize-wizard
         result_resize = subprocess.run(
             [
-                PYHORN_CLI, "resize-wizard",
-                "--driver", str(DRIVER_YAML),
-                "--horn", str(HORN_YAML),
-                "--factor", "1.2",
+                *PYHORN_CLI,
+                "resize-wizard",
+                "--driver",
+                str(DRIVER_YAML),
+                "--horn",
+                str(HORN_YAML),
+                "--factor",
+                "1.2",
                 "--geometry-only",
-                "--output", str(resized_yaml),
+                "--output",
+                str(resized_yaml),
             ],
             cwd=str(WORKDIR),
             capture_output=True,
@@ -67,13 +71,20 @@ class TestResizeWizardRoundtrip:
         # Step 2: calculate
         result_calc = subprocess.run(
             [
-                PYHORN_CLI, "calculate",
-                "--driver", str(DRIVER_YAML),
-                "--horn", str(resized_yaml),
-                "--output-dir", str(calc_out_dir),
-                "--fmin", "100",
-                "--fmax", "2000",
-                "--n-points", "20",
+                *PYHORN_CLI,
+                "calculate",
+                "--driver",
+                str(DRIVER_YAML),
+                "--horn",
+                str(resized_yaml),
+                "--output-dir",
+                str(calc_out_dir),
+                "--fmin",
+                "100",
+                "--fmax",
+                "2000",
+                "--n-points",
+                "20",
                 "--no-plot",
             ],
             cwd=str(WORKDIR),
@@ -100,18 +111,16 @@ class TestResizeWizardRoundtrip:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-        assert len(rows) == 20, (
-            f"Expected 20 frequency points, got {len(rows)}"
-        )
+        assert len(rows) == 20, f"Expected 20 frequency points, got {len(rows)}"
 
         # Find the Horn SPL column
         spl_col = next(
             (col for col in rows[0].keys() if "SPL" in col and "Horn SPL" in col),
             None,
         )
-        assert spl_col is not None, (
-            f"No 'Horn SPL' column found in CSV header: {list(rows[0].keys())}"
-        )
+        assert (
+            spl_col is not None
+        ), f"No 'Horn SPL' column found in CSV header: {list(rows[0].keys())}"
 
         spl_values = [float(r[spl_col]) for r in rows]
 

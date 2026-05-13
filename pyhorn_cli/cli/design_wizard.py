@@ -9,7 +9,13 @@ import typer
 import yaml
 from dataclasses import asdict
 
-from pyhorn_core.config.parser import parse_driver_specs, parse_horn_geometry, parse_horn_project
+from pyhorn_core.config.parser import (
+    parse_driver_specs,
+    parse_horn_geometry,
+    parse_horn_project,
+)
+from pyhorn_core.config.horn_models import HornGeometry
+from pyhorn_core.config.project_models import HornProject
 from pyhorn_core.solver.hornresp import solve_hornresp_profile
 from pyhorn_core.solver.horn_segment import compute_horn_segment
 from pyhorn_core.solver.chamber_wizard import (
@@ -36,29 +42,41 @@ def resize_wizard(
         None, "--project", "-p", help="Path to project YAML (geometry + metadata)"
     ),
     horn: Optional[Path] = typer.Option(
-        None, "--horn", "-h", help="Path to geometry YAML (standalone, no project metadata)"
+        None,
+        "--horn",
+        "-h",
+        help="Path to geometry YAML (standalone, no project metadata)",
     ),
     driver: Path = typer.Option(
         ..., "--driver", "-d", help="Path to driver JSON/YAML config"
     ),
     factor: float = typer.Option(
-        ..., "--factor", "-f", help="Linear resize factor (e.g. 1.5 = 50% larger; 0.8 = 20% smaller)"
+        ...,
+        "--factor",
+        "-f",
+        help="Linear resize factor (e.g. 1.5 = 50% larger; 0.8 = 20% smaller)",
     ),
     output: Optional[Path] = typer.Option(
-        None, "--output", "-o", help="Output path for resized geometry YAML (defaults to <input stem>_resized.yaml)"
+        None,
+        "--output",
+        "-o",
+        help="Output path for resized geometry YAML (defaults to <input stem>_resized.yaml)",
     ),
     adjust_sd: bool = typer.Option(
-        True, "--adjust-sd/--no-adjust-sd",
-        help="Scale driver piston area (Sd) by factor² (default: enabled)"
+        True,
+        "--adjust-sd/--no-adjust-sd",
+        help="Scale driver piston area (Sd) by factor² (default: enabled)",
     ),
     adjust_re: bool = typer.Option(
-        False, "--adjust-re/--no-adjust-re",
+        False,
+        "--adjust-re/--no-adjust-re",
         help="Scale driver voice coil resistance (Re) by factor² (default: disabled; "
-             "Re of the same driver does not change with size)"
+        "Re of the same driver does not change with size)",
     ),
     geometry_only: bool = typer.Option(
-        False, "--geometry-only",
-        help="Write only the resized geometry YAML (no project YAML with metadata)"
+        False,
+        "--geometry-only",
+        help="Write only the resized geometry YAML (no project YAML with metadata)",
     ),
 ):
     """Resize Wizard — scale a horn geometry proportionally (Hornresp page 68).
@@ -74,22 +92,27 @@ def resize_wizard(
       Driver Re                          → × factor²  (disabled by default; rarely needed)
       Driver Mms, BL, CMS, RMS, VAS     → unchanged (same driver)
 
-    Example: scale the Hiro horn up by 50% (larger → lower cutoff)
-        pyhorn resize-wizard --project projects/hiro.yaml --driver drivers/fe166nv2.yaml \\
-            --factor 1.5 --output resized_hiro.yaml
+    Example: scale the HiroB horn up by 50% (larger → lower cutoff)
+        pyhorn resize-wizard --project projects/hirob.yaml --driver drivers/fe166nv2.yaml \\
+            --factor 1.5 --output resized_hirob.yaml
 
     Example: scale down by 20%
-        pyhorn resize-wizard --project projects/hiro.yaml --driver drivers/fe166nv2.yaml \\
-            --factor 0.8 --output smaller_hiro.yaml
+        pyhorn resize-wizard --project projects/hirob.yaml --driver drivers/fe166nv2.yaml \\
+            --factor 0.8 --output smaller_hirob.yaml
     """
     from pyhorn_core.solver.resize import apply_resize
 
+    horn_proj: Optional[HornProject] = None
     if project is None and horn is None:
         typer.secho("Error: specify either --project or --horn", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
+    assert horn is not None  # guaranteed by above check
+
     if factor <= 0:
-        typer.secho(f"Error: resize factor must be positive, got {factor}", fg=typer.colors.RED)
+        typer.secho(
+            f"Error: resize factor must be positive, got {factor}", fg=typer.colors.RED
+        )
         raise typer.Exit(code=1)
 
     # 1. Load driver
@@ -115,38 +138,54 @@ def resize_wizard(
 
     # 3. Apply resize
     resized_geo, resized_driver = apply_resize(
-        horn_geo, driver_specs, factor,
-        adjust_sd=adjust_sd, adjust_re=adjust_re
+        horn_geo, driver_specs, factor, adjust_sd=adjust_sd, adjust_re=adjust_re
     )
 
     # 4. Determine output path
     if output is None:
         suffix = "_resized.yaml"
         if is_project:
+            assert project is not None
             output = project.parent / f"{project.stem}{suffix}"
         else:
+            assert horn is not None
             output = horn.parent / f"{horn.stem}{suffix}"
 
     # 5. Write geometry YAML
     geo_data = _horn_geometry_to_dict(resized_geo)
     geo_yaml_str = yaml.safe_dump(geo_data, sort_keys=False, default_flow_style=False)
-    geo_path = output.with_suffix(".yaml") if output.suffix not in (".yaml", ".yml") else output
+    geo_path = (
+        output.with_suffix(".yaml")
+        if output.suffix not in (".yaml", ".yml")
+        else output
+    )
     geo_path.write_text(geo_yaml_str, encoding="utf-8")
 
     # 6. If project mode and not --geometry-only, write project YAML + driver YAML
     if is_project and not geometry_only:
+        assert horn_proj is not None
         driver_path = output.parent / f"{output.stem}_driver.yaml"
         driver_data = _driver_specs_to_dict(resized_driver)
-        driver_yaml_str = yaml.safe_dump(driver_data, sort_keys=False, default_flow_style=False)
+        driver_yaml_str = yaml.safe_dump(
+            driver_data, sort_keys=False, default_flow_style=False
+        )
         driver_path.write_text(driver_yaml_str, encoding="utf-8")
 
         # Build project YAML with resized references
         proj_data = {
             "name": f"{horn_proj.name} (resized ×{factor})" if horn_proj.name else None,
             "geometry_path": geo_path.name,
-            "driver_coord": [round(c, 4) for c in horn_proj.driver_coord] if horn_proj.driver_coord else None,
+            "driver_coord": (
+                [round(c, 4) for c in horn_proj.driver_coord]
+                if horn_proj.driver_coord
+                else None
+            ),
             "width": round(horn_proj.width, 4) if horn_proj.width is not None else None,
-            "enclosure": [round(v, 4) for v in horn_proj.enclosure] if horn_proj.enclosure else None,
+            "enclosure": (
+                [round(v, 4) for v in horn_proj.enclosure]
+                if horn_proj.enclosure
+                else None
+            ),
             "thickness": round(horn_proj.thickness, 4) if horn_proj.thickness else None,
             "material": horn_proj.material,
             "notes": horn_proj.notes,
@@ -157,32 +196,47 @@ def resize_wizard(
             if val is not None:
                 proj_data[key] = asdict(val)
 
-        proj_yaml_str = yaml.safe_dump({k: v for k, v in proj_data.items() if v is not None},
-                                        sort_keys=False, default_flow_style=False)
-        proj_path = output.with_suffix(".project.yaml") if output.suffix == ".yaml" else output
+        proj_yaml_str = yaml.safe_dump(
+            {k: v for k, v in proj_data.items() if v is not None},
+            sort_keys=False,
+            default_flow_style=False,
+        )
+        proj_path = (
+            output.with_suffix(".project.yaml") if output.suffix == ".yaml" else output
+        )
         proj_path.write_text(proj_yaml_str, encoding="utf-8")
 
-        typer.secho(f"✓ Resize Wizard complete  (factor ×{factor})", fg=typer.colors.GREEN)
+        typer.secho(
+            f"✓ Resize Wizard complete  (factor ×{factor})", fg=typer.colors.GREEN
+        )
         typer.echo(f"  Resized geometry: {geo_path}")
         typer.echo(f"  Resized driver:   {driver_path}")
         typer.echo(f"  Resized project:  {proj_path}")
     else:
-        typer.secho(f"✓ Resize Wizard complete  (factor ×{factor})", fg=typer.colors.GREEN)
+        typer.secho(
+            f"✓ Resize Wizard complete  (factor ×{factor})", fg=typer.colors.GREEN
+        )
         typer.echo(f"  Resized geometry: {geo_path}")
 
 
 def hornresp(
     s1: Optional[float] = typer.Option(None, help="Hornresp S1 throat area (cm²)"),
     s2: Optional[float] = typer.Option(None, help="Hornresp S2 mouth area (cm²)"),
-    f12: Optional[float] = typer.Option(None, help="Hornresp F12 flare cutoff (Hz) [Exp/Hyp profiles]"),
+    f12: Optional[float] = typer.Option(
+        None, help="Hornresp F12 flare cutoff (Hz) [Exp/Hyp profiles]"
+    ),
     t: Optional[float] = typer.Option(
         None, "--t", help="Hornresp hyperbolic T parameter [Hyp profile only]"
     ),
     hyp: Optional[float] = typer.Option(
-        None, "--hyp", help="Hornresp Hyp / L12 horn axis length (cm) [Hyp/Con/Par/Cat profiles]"
+        None,
+        "--hyp",
+        help="Hornresp Hyp / L12 horn axis length (cm) [Hyp/Con/Par/Cat profiles]",
     ),
     l12: Optional[float] = typer.Option(
-        None, "--l12", help="Alias for --hyp; horn axis length in cm [Con/Exp/Par/Cat profiles]"
+        None,
+        "--l12",
+        help="Alias for --hyp; horn axis length in cm [Con/Exp/Par/Cat profiles]",
     ),
     profile_type: str = typer.Option(
         "hyp",
@@ -253,36 +307,44 @@ def hornresp(
         typer.secho(f"Error solving Hornresp inputs: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
+    profile_type_str = str(solved["profile_type"])
     pt_label = {
-        "conical": "Conical", "exp": "Exponential", "par": "Parabolic",
-        "cat": "Catenoidal", "hyp": "Hyperbolic",
-    }.get(solved["profile_type"], solved["profile_type"].title())
+        "conical": "Conical",
+        "exp": "Exponential",
+        "par": "Parabolic",
+        "cat": "Catenoidal",
+        "hyp": "Hyperbolic",
+    }.get(profile_type_str, profile_type_str.title())
 
     typer.echo(f"Solved Hornresp {pt_label} horn parameters:")
     typer.echo(f"  Profile type: {pt_label}")
     typer.echo(f"  S1 (throat):  {solved['s1_cm2']:.3f} cm²")
     typer.echo(f"  S2 (mouth):   {solved['s2_cm2']:.3f} cm²")
     typer.echo(f"  L12 (length): {solved['l12_cm']:.3f} cm")
-    if solved["f12_hz"] > 0:
-        typer.echo(f"  F12 (cutoff):  {solved['f12_hz']:.3f} Hz")
+    f12_hz_val = float(solved["f12_hz"])
+    if f12_hz_val > 0:
+        typer.echo(f"  F12 (cutoff):  {f12_hz_val:.3f} Hz")
     else:
         typer.echo(f"  F12 (cutoff):  N/A ({pt_label} has no exponential cutoff)")
-    if solved["profile_type"] in ("hyperbolic", "catenoidal"):
+    if profile_type_str in ("hyperbolic", "catenoidal"):
         typer.echo(f"  T:             {solved['t']:.6f}")
     typer.echo(f"  Throat area:   {solved['throat_area_m2']:.6f} m²")
     typer.echo(f"  Mouth area:    {solved['mouth_area_m2']:.6f} m²")
 
     # Build YAML in sections format (Gap Analysis requirement)
     profile_type_out = solved["profile_type"]
+    throat_area = float(solved["throat_area_m2"])
+    mouth_area = float(solved["mouth_area_m2"])
+    path_length = float(solved["path_length_m"])
     section: dict = {
         "name": "main_horn",
         "profile_type": profile_type_out,
-        "start_area": round(solved["throat_area_m2"], 8),
-        "end_area": round(solved["mouth_area_m2"], 8),
-        "length": round(solved["path_length_m"], 6),
+        "start_area": round(throat_area, 8),
+        "end_area": round(mouth_area, 8),
+        "length": round(path_length, 6),
     }
-    if profile_type_out in ("hyperbolic", "catenoidal"):
-        section["hyperbolic_t"] = round(solved["t"], 6)
+    if profile_type_str in ("hyperbolic", "catenoidal"):
+        section["hyperbolic_t"] = round(float(solved["t"]), 6)
 
     data: dict = {
         "enclosure_type": enclosure_type.upper(),
@@ -292,15 +354,15 @@ def hornresp(
     if lrc > 0 or vrc is not None:
         data["rear_chamber"] = {
             "lrc": float(lrc),
-            "vrc": float(vrc if vrc is not None else lrc * solved["throat_area_m2"]),
+            "vrc": float(vrc if vrc is not None else lrc * throat_area),
         }
     if vtc > 0:
         data["throat_chamber"] = {"vtc": float(vtc)}
 
     yaml_text = yaml.safe_dump(data, sort_keys=False, default_flow_style=False)
     if output_yaml is not None:
-        solved_f12 = solved["f12_hz"]
-        solved_t = solved.get("t", 0.0)
+        solved_f12 = float(solved["f12_hz"])
+        solved_t = float(solved.get("t", 0.0))
         header = (
             f"# Generated from Hornresp {pt_label} inputs\n"
             f"# S1={solved['s1_cm2']:.3f} cm², S2={solved['s2_cm2']:.3f} cm², "
@@ -357,12 +419,12 @@ _PARAM_HELP = {
 }
 
 _PARAM_RANGES = {
-    "vrc_L":   (0.5,   30.0),
-    "lrc_cm":  (3.0,   80.0),
-    "vtc_cm3": (5.0,   500.0),
-    "atc_cm2": (5.0,   100.0),
-    "ap1_cm2": (1.0,   80.0),
-    "lpt_cm":  (3.0,   50.0),
+    "vrc_L": (0.5, 30.0),
+    "lrc_cm": (3.0, 80.0),
+    "vtc_cm3": (5.0, 500.0),
+    "atc_cm2": (5.0, 100.0),
+    "ap1_cm2": (1.0, 80.0),
+    "lpt_cm": (3.0, 50.0),
 }
 
 
@@ -381,20 +443,29 @@ def _prompt_param(
     if warning:
         typer.secho(f"    ⚠  {warning}", fg=typer.colors.YELLOW)
     typer.echo(f"    Range: {param_range[0]}–{param_range[1]} {unit}")
-    typer.echo(f"    Current: {current:.4g} {unit}" if current is not None else "    Current: (not set)")
+    typer.echo(
+        f"    Current: {current:.4g} {unit}"
+        if current is not None
+        else "    Current: (not set)"
+    )
     raw = typer.prompt("    New value (Enter to keep current, 'q' to quit wizard)")
     if raw.strip().lower() == "q":
         raise typer.Exit(code=0)
     if not raw.strip():
         if current is None:
-            typer.secho("    No current value — using default range midpoint.", fg=typer.colors.YELLOW)
+            typer.secho(
+                "    No current value — using default range midpoint.",
+                fg=typer.colors.YELLOW,
+            )
             return (param_range[0] + param_range[1]) / 2.0
         return current
     try:
         val = float(raw.strip())
     except ValueError:
         typer.secho("    Invalid number — keeping current value.", fg=typer.colors.RED)
-        return current if current is not None else (param_range[0] + param_range[1]) / 2.0
+        return (
+            current if current is not None else (param_range[0] + param_range[1]) / 2.0
+        )
     if val < param_range[0] or val > param_range[1]:
         typer.secho(
             f"    Value {val} outside range [{param_range[0]}, {param_range[1]}] — clamping.",
@@ -414,7 +485,9 @@ def chamber_wizard(
         help="Target Qts for rear-chamber alignment (typical range 0.5–0.7). Default: 0.6.",
     ),
     interactive: bool = typer.Option(
-        True, "--interactive/--no-interactive", help="Run in interactive mode (default). Use --no-interactive for batch."
+        True,
+        "--interactive/--no-interactive",
+        help="Run in interactive mode (default). Use --no-interactive for batch.",
     ),
     box_width_mm: float = typer.Option(
         200.0,
@@ -449,7 +522,10 @@ def chamber_wizard(
     """
     # ── 1. Load driver YAML ───────────────────────────────────────────────────
     if driver_yaml is None:
-        typer.secho("No --driver specified. Enter path to driver YAML (or 'q' to quit):", fg=typer.colors.YELLOW)
+        typer.secho(
+            "No --driver specified. Enter path to driver YAML (or 'q' to quit):",
+            fg=typer.colors.YELLOW,
+        )
         raw = typer.prompt("  Driver YAML path")
         if raw.strip().lower() == "q":
             raise typer.Exit(code=0)
@@ -477,9 +553,15 @@ def chamber_wizard(
         raise typer.Exit(code=1)
 
     # ── 3. Signal chain diagram ───────────────────────────────────────────────
-    typer.echo(typer.style("\n🎛  Chamber Design Wizard", fg=typer.colors.CYAN, bold=True))
-    typer.echo(typer.style("    Estimate Vrc, Lrc, Vtc, Atc, Ap1, Lpt from driver T-S parameters\n",
-                            fg=typer.colors.WHITE))
+    typer.echo(
+        typer.style("\n🎛  Chamber Design Wizard", fg=typer.colors.CYAN, bold=True)
+    )
+    typer.echo(
+        typer.style(
+            "    Estimate Vrc, Lrc, Vtc, Atc, Ap1, Lpt from driver T-S parameters\n",
+            fg=typer.colors.WHITE,
+        )
+    )
     typer.echo(_ASCII_SIGNAL_CHAIN)
 
     # ── 4. T-S parameter summary ─────────────────────────────────────────────
@@ -494,26 +576,32 @@ def chamber_wizard(
 
     # ── 5. Compute recommended values ────────────────────────────────────────
     import pyhorn_core.solver.chamber_wizard as _cw
+
     _cw.QTS_TARGET = qts_target
 
     p = compute_chamber_params(tsp)
     warnings = validate_chamber(p, tsp, qts_target)
 
     typer.echo(f"\n{'─'*62}")
-    typer.secho("  Recommended values (target Qts = {0:.2f}):".format(qts_target), fg=typer.colors.CYAN)
+    typer.secho(
+        "  Recommended values (target Qts = {0:.2f}):".format(qts_target),
+        fg=typer.colors.CYAN,
+    )
     typer.echo(f"{'─'*62}")
 
     params_display = [
-        ("Vrc",  p.vrc_L,     "L",   _PARAM_HELP["vrc_L"][1],   warnings.vrc_warning),
-        ("Lrc",  p.lrc_m * 100.0, "cm",  _PARAM_HELP["lrc_cm"][1],  warnings.lrc_warning),
-        ("Vtc",  p.vtc_cm3,   "cm³", _PARAM_HELP["vtc_cm3"][1], warnings.vtc_warning),
-        ("Atc",  p.atc_cm2,   "cm²", _PARAM_HELP["atc_cm2"][1], warnings.atc_warning),
-        ("Ap1",  p.ap1_cm2,   "cm²", _PARAM_HELP["ap1_cm2"][1], warnings.ap1_warning),
-        ("Lpt",  p.lpt_cm,    "cm",  _PARAM_HELP["lpt_cm"][1],  warnings.lpt_warning),
+        ("Vrc", p.vrc_L, "L", _PARAM_HELP["vrc_L"][1], warnings.vrc_warning),
+        ("Lrc", p.lrc_m * 100.0, "cm", _PARAM_HELP["lrc_cm"][1], warnings.lrc_warning),
+        ("Vtc", p.vtc_cm3, "cm³", _PARAM_HELP["vtc_cm3"][1], warnings.vtc_warning),
+        ("Atc", p.atc_cm2, "cm²", _PARAM_HELP["atc_cm2"][1], warnings.atc_warning),
+        ("Ap1", p.ap1_cm2, "cm²", _PARAM_HELP["ap1_cm2"][1], warnings.ap1_warning),
+        ("Lpt", p.lpt_cm, "cm", _PARAM_HELP["lpt_cm"][1], warnings.lpt_warning),
     ]
 
     for name, val, unit, help_text, warning in params_display:
-        warn_str = typer.style(f"  ⚠  {warning}", fg=typer.colors.YELLOW) if warning else ""
+        warn_str = (
+            typer.style(f"  ⚠  {warning}", fg=typer.colors.YELLOW) if warning else ""
+        )
         typer.echo(f"  {name:<5} = {val:>8.4g} {unit}   {warn_str}")
 
     typer.echo(f"{'─'*62}")
@@ -524,36 +612,50 @@ def chamber_wizard(
 
     # ── 6. Interactive override ──────────────────────────────────────────────
     if interactive:
-        typer.secho("  Interactive mode — press Enter to accept each value,", fg=typer.colors.WHITE)
-        typer.secho("  type a new number to override, or 'q' to quit and output current.\n", fg=typer.colors.WHITE)
+        typer.secho(
+            "  Interactive mode — press Enter to accept each value,",
+            fg=typer.colors.WHITE,
+        )
+        typer.secho(
+            "  type a new number to override, or 'q' to quit and output current.\n",
+            fg=typer.colors.WHITE,
+        )
 
         BOX_AREA_M2 = (box_width_mm / 1000.0) ** 2  # square box assumption
 
         # Mutable copy of params
-        vrc_L   = p.vrc_L
-        lrc_cm  = p.lrc_m * 100.0
+        vrc_L = p.vrc_L
+        lrc_cm = p.lrc_m * 100.0
         vtc_cm3 = p.vtc_cm3
         atc_cm2 = p.atc_cm2
         ap1_cm2 = p.ap1_cm2
-        lpt_cm  = p.lpt_cm
+        lpt_cm = p.lpt_cm
 
         # Vrc → Lrc linkage (changing Vrc updates Lrc)
         try:
             vrc_L = _prompt_param(
                 "Vrc (rear chamber volume)",
-                vrc_L, "L",
+                vrc_L,
+                "L",
                 _PARAM_RANGES["vrc_L"],
                 warnings.vrc_warning,
-                _PARAM_HELP["vrc_L"][1] + f"\n    Changing Vrc also updates Lrc (box section = {box_width_mm}×{box_width_mm} mm).",
+                _PARAM_HELP["vrc_L"][1]
+                + f"\n    Changing Vrc also updates Lrc (box section = {box_width_mm}×{box_width_mm} mm).",
             )
             # Recompute Lrc from new Vrc
             lrc_cm = (vrc_L / 1000.0) / BOX_AREA_M2 * 100.0
             warnings = validate_chamber(
                 ComputedChamberParams(
-                    vrc_L=vrc_L, lrc_m=lrc_cm / 100.0, vtc_m3=vtc_cm3 / 1e6,
-                    vtc_cm3=vtc_cm3, atc_m2=atc_cm2 / 1e4, atc_cm2=atc_cm2,
-                    ap1_m2=ap1_cm2 / 1e4, ap1_cm2=ap1_cm2,
-                    lpt_m=lpt_cm / 100.0, lpt_cm=lpt_cm,
+                    vrc_L=vrc_L,
+                    lrc_m=lrc_cm / 100.0,
+                    vtc_m3=vtc_cm3 / 1e6,
+                    vtc_cm3=vtc_cm3,
+                    atc_m2=atc_cm2 / 1e4,
+                    atc_cm2=atc_cm2,
+                    ap1_m2=ap1_cm2 / 1e4,
+                    ap1_cm2=ap1_cm2,
+                    lpt_m=lpt_cm / 100.0,
+                    lpt_cm=lpt_cm,
                 ),
                 tsp,
                 qts_target,
@@ -564,7 +666,8 @@ def chamber_wizard(
         # Lrc
         lrc_cm = _prompt_param(
             "Lrc (rear chamber path length)",
-            lrc_cm, "cm",
+            lrc_cm,
+            "cm",
             _PARAM_RANGES["lrc_cm"],
             warnings.lrc_warning,
             _PARAM_HELP["lrc_cm"][1],
@@ -573,7 +676,8 @@ def chamber_wizard(
         # Vtc
         vtc_cm3 = _prompt_param(
             "Vtc (throat chamber volume)",
-            vtc_cm3, "cm³",
+            vtc_cm3,
+            "cm³",
             _PARAM_RANGES["vtc_cm3"],
             warnings.vtc_warning,
             _PARAM_HELP["vtc_cm3"][1],
@@ -582,7 +686,8 @@ def chamber_wizard(
         # Atc
         atc_cm2 = _prompt_param(
             "Atc (throat chamber area)",
-            atc_cm2, "cm²",
+            atc_cm2,
+            "cm²",
             _PARAM_RANGES["atc_cm2"],
             warnings.atc_warning,
             _PARAM_HELP["atc_cm2"][1],
@@ -591,7 +696,8 @@ def chamber_wizard(
         # Ap1
         ap1_cm2 = _prompt_param(
             "Ap1 (baffle aperture area)",
-            ap1_cm2, "cm²",
+            ap1_cm2,
+            "cm²",
             _PARAM_RANGES["ap1_cm2"],
             warnings.ap1_warning,
             _PARAM_HELP["ap1_cm2"][1],
@@ -600,7 +706,8 @@ def chamber_wizard(
         # Lpt
         lpt_cm = _prompt_param(
             "Lpt (baffle thickness)",
-            lpt_cm, "cm",
+            lpt_cm,
+            "cm",
             _PARAM_RANGES["lpt_cm"],
             warnings.lpt_warning,
             _PARAM_HELP["lpt_cm"][1],
@@ -651,9 +758,7 @@ def chamber_wizard(
         save = typer.prompt("\n  Save YAML snippet to a file? (y/N)")
         if save.strip().lower() == "y":
             default_path = driver_yaml.parent / f"{driver_yaml.stem}_chamber.yaml"
-            out_path_str = typer.prompt(
-                f"  Output path", default=str(default_path)
-            )
+            out_path_str = typer.prompt(f"  Output path", default=str(default_path))
             _out_path = Path(out_path_str.strip())
 
     if _out_path is not None:
@@ -671,16 +776,24 @@ def chamber_wizard(
 
 def segment_wizard(
     s1: Optional[float] = typer.Option(
-        None, "--s1", help="Throat (neck) area in cm²  [provide any 3 of --s1, --s2, --l12, --f12]"
+        None,
+        "--s1",
+        help="Throat (neck) area in cm²  [provide any 3 of --s1, --s2, --l12, --f12]",
     ),
     s2: Optional[float] = typer.Option(
-        None, "--s2", help="Mouth area in cm²  [provide any 3 of --s1, --s2, --l12, --f12]"
+        None,
+        "--s2",
+        help="Mouth area in cm²  [provide any 3 of --s1, --s2, --l12, --f12]",
     ),
     l12: Optional[float] = typer.Option(
-        None, "--l12", help="Horn axis length in cm  [provide any 3 of --s1, --s2, --l12, --f12]"
+        None,
+        "--l12",
+        help="Horn axis length in cm  [provide any 3 of --s1, --s2, --l12, --f12]",
     ),
     f12: Optional[float] = typer.Option(
-        None, "--f12", help="Low-frequency cutoff in Hz  [provide any 3 of --s1, --s2, --l12, --f12]"
+        None,
+        "--f12",
+        help="Low-frequency cutoff in Hz  [provide any 3 of --s1, --s2, --l12, --f12]",
     ),
 ):
     """Horn Segment Wizard — geometry calculator for a single catenoidal horn segment.
@@ -732,16 +845,18 @@ def segment_wizard(
     typer.echo(f"{'='*60}")
 
     param_labels = {
-        "f12_hz":  "Cutoff frequency F12",
-        "l12_cm":  "Horn length L12",
-        "s2_cm2":  "Mouth area S2",
-        "s1_cm2":  "Throat area S1",
+        "f12_hz": "Cutoff frequency F12",
+        "l12_cm": "Horn length L12",
+        "s2_cm2": "Mouth area S2",
+        "s1_cm2": "Throat area S1",
     }
     label = param_labels.get(result.computed_param, result.computed_param)
     if result.computed_param == "f12_hz":
         typer.echo(f"\n  Computed {label}: {result.computed_value:.2f} Hz")
     elif result.computed_param == "l12_cm":
-        typer.echo(f"\n  Computed {label}: {result.computed_value:.2f} cm  ({result.computed_value/100:.4f} m)")
+        typer.echo(
+            f"\n  Computed {label}: {result.computed_value:.2f} cm  ({result.computed_value/100:.4f} m)"
+        )
     else:
         typer.echo(f"\n  Computed {label}: {result.computed_value:.2f} cm²")
 
@@ -762,7 +877,9 @@ def segment_wizard(
     typer.echo(f"  {'─'*50}")
 
     # ── System volume ─────────────────────────────────────────────────────────
-    typer.echo(f"\n  System volume: {result.system_volume_l:.3f} L  (horn + 0.1 L throat chamber)")
+    typer.echo(
+        f"\n  System volume: {result.system_volume_l:.3f} L  (horn + 0.1 L throat chamber)"
+    )
 
     # ── Unit summary ─────────────────────────────────────────────────────────
     typer.echo(f"\n  Input parameters:")
@@ -857,25 +974,28 @@ def synthesis_wizard(
 
     def _get(key: str) -> Optional[float]:
         """Extract a float from YAML by key (case-insensitive, multiline)."""
-        pat = _re.compile(rf"^\s*{_re.escape(key)}\s*:\s*([\d.e+\-]+)", _re.MULTILINE | _re.IGNORECASE)
+        pat = _re.compile(
+            rf"^\s*{_re.escape(key)}\s*:\s*([\d.e+\-]+)", _re.MULTILINE | _re.IGNORECASE
+        )
         m = pat.search(yaml_text)
         return float(m.group(1)) if m else None
 
-    fs  = _get("fs")
+    fs = _get("fs")
     qts = _get("qts")
     vas = _get("vas")
-    sd  = _get("sd")
+    sd = _get("sd")
     re_ = _get("re")
-    bl  = _get("bl")
+    bl = _get("bl")
     mms = _get("mms")
     cms = _get("cms")
     rms = _get("rms")
     qes = _get("qes")
     qms = _get("qms")
-    le  = _get("le") or 0.0
+    le = _get("le") or 0.0
 
-    missing = [k for k, v in [("fs", fs), ("qts", qts), ("vas", vas), ("sd", sd)]
-               if v is None]
+    missing = [
+        k for k, v in [("fs", fs), ("qts", qts), ("vas", vas), ("sd", sd)] if v is None
+    ]
     if missing:
         typer.secho(
             f"Missing required T-S parameters in driver YAML: {', '.join(missing)}. "
@@ -883,6 +1003,8 @@ def synthesis_wizard(
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
+
+    assert fs is not None and qts is not None and vas is not None and sd is not None
 
     # sd may be in cm² — check for sd_cm2 if sd is missing
     if sd is None:
@@ -939,7 +1061,9 @@ def synthesis_wizard(
 
     # ── 4. Print summary banner ──────────────────────────────────────────────
     typer.secho("\n  🎺 Horn System Synthesis Wizard", fg=typer.colors.CYAN, bold=True)
-    typer.echo(f"  Driver: {driver.name}  |  Target f3: {f3:.0f} Hz  |  f7: {f7:.0f} Hz\n")
+    typer.echo(
+        f"  Driver: {driver.name}  |  Target f3: {f3:.0f} Hz  |  f7: {f7:.0f} Hz\n"
+    )
 
     typer.echo(f"  {'─'*56}")
     typer.echo(f"  {'Horn geometry':<30} {'Value':>24}")
@@ -952,9 +1076,15 @@ def synthesis_wizard(
     typer.echo(f"  {'Chambers':<30} {'Value':>24}")
     typer.echo(f"  {'─'*56}")
     typer.echo(f"  {'Rear chamber volume (Vrc)':<30} {syn.chambers.vrc_L:>20.2f} L")
-    typer.echo(f"  {'Rear chamber length (Lrc)':<30} {syn.chambers.lrc_m*100:>20.1f} cm")
-    typer.echo(f"  {'Throat chamber volume (Vtc)':<30} {syn.chambers.vtc_m3*1e6:>20.1f} cm³")
-    typer.echo(f"  {'Throat chamber area (Atc)':<30} {syn.chambers.atc_m2*1e4:>20.2f} cm²")
+    typer.echo(
+        f"  {'Rear chamber length (Lrc)':<30} {syn.chambers.lrc_m*100:>20.1f} cm"
+    )
+    typer.echo(
+        f"  {'Throat chamber volume (Vtc)':<30} {syn.chambers.vtc_m3*1e6:>20.1f} cm³"
+    )
+    typer.echo(
+        f"  {'Throat chamber area (Atc)':<30} {syn.chambers.atc_m2*1e4:>20.2f} cm²"
+    )
     typer.echo(f"  {'Baffle aperture (Ap1)':<30} {syn.chambers.ap1_m2*1e4:>20.2f} cm²")
     typer.echo(f"  {'Baffle thickness (Lpt)':<30} {syn.chambers.lpt_m*1000:>20.1f} mm")
     typer.echo(f"  {'─'*56}")
@@ -963,9 +1093,11 @@ def synthesis_wizard(
         typer.secho(f"  {'Warnings':<30}", fg=typer.colors.YELLOW)
         for w in syn.warnings:
             icon = {"INFO": "ℹ", "WARN": "⚠", "ERROR": "✖"}.get(w.severity, "•")
-            fg = (typer.colors.YELLOW if w.severity == "WARN"
-                  else typer.colors.CYAN  if w.severity == "INFO"
-                  else typer.colors.RED)
+            fg = (
+                typer.colors.YELLOW
+                if w.severity == "WARN"
+                else typer.colors.CYAN if w.severity == "INFO" else typer.colors.RED
+            )
             typer.echo(f"  {icon} {w.field.upper()}: {w.message}")
         typer.echo(f"  {'─'*56}")
 
@@ -991,4 +1123,7 @@ def synthesis_wizard(
         typer.echo(f"  Saved to: {output}")
     else:
         typer.echo("\n" + full_output)
-        typer.secho("✓ Synthesis complete  (use --output to save to file)", fg=typer.colors.GREEN)
+        typer.secho(
+            "✓ Synthesis complete  (use --output to save to file)",
+            fg=typer.colors.GREEN,
+        )

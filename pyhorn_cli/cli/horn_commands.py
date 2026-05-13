@@ -344,7 +344,7 @@ def throat_adapter(
     )
     typer.echo(f"  Flare angles:              A1={a1}°, A2={a2}°")
     typer.echo(f"  Minimum length (Lpt):      {lpt_cm:.2f} cm  ({adapter.lpt:.4f} m)")
-    if length is not None:
+    if length is not None and length_m is not None:
         typer.echo(f"  Requested length:           {length:.2f} mm  ({length_m:.4f} m)")
         if abs(adapter.lpt - length_m) > 1e-9:
             typer.secho(
@@ -536,6 +536,7 @@ def auto_segment(
 
         # ── Throat Adapter injection ─────────────────────────────────────────
         if ta_provided:
+            assert throat_adapter_d1 is not None and throat_adapter_d2 is not None
             D1_m = throat_adapter_d1 / 1000.0
             D2_m = throat_adapter_d2 / 1000.0
             length_m = (
@@ -657,8 +658,8 @@ def diagnose_spl(
 
     Example
     -------
-        pyhorn diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hiro.yaml
-        pyhorn diagnose-spl -d drivers/FE166NV2.yaml -p projects/hiro.yaml --standing-wave-freqs
+        pyhorn diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hirob.yaml
+        pyhorn diagnose-spl -d drivers/FE166NV2.yaml -p projects/hirob.yaml --standing-wave-freqs
     """
     # ── Parse configurations ─────────────────────────────────────────────────
     try:
@@ -856,7 +857,11 @@ def diagnose_spl(
             else getattr(horn, "path_length", 0.0)
         )
         # Horn path contributes ~5% of its volume as effective compliance
-        path_volume = path_len * max(atc, 1e-6) if path_len > 0 and atc > 0 else 0.0
+        path_volume = (
+            path_len * max(atc, 1e-6)
+            if path_len > 0 and atc is not None and atc > 0
+            else 0.0
+        )
         vrc_val = vrc or 0.0
         vtc_val = vtc or 0.0
         atc_val = atc or 0.0
@@ -927,6 +932,7 @@ def diagnose_spl(
             # roughly integer multiples of a single fundamental.
             notch_freqs = sorted(set(f_n for f_n, _, _, _, _ in detected_notches))
             candidates = []
+            f_empirical: Optional[float] = None
             for f_i in notch_freqs:
                 for f_j in notch_freqs:
                     if f_j > f_i:

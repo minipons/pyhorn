@@ -3,15 +3,15 @@
 # Tests the full synthesis-wizard pipeline: driver YAML → geometry YAML
 set -e -x
 
-WORKDIR="${WORKDIR:-/Users/guillaume/P/GdB1}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="${WORKDIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 cd "$WORKDIR"
 
 OUT="/tmp/test_synthesis_wizard_out.yaml"
 rm -f "$OUT"
 
 # synthesis-wizard requires a driver YAML with T-S parameters
-# Use the benchmark driver (FE166NV2-like) that already exists in the repo
-DRIVER="pyhorn_core/tests/benchmarks/hornresp_reference_driver.yaml"
+DRIVER="drivers/FE166NV2.yaml"
 if [ ! -f "$DRIVER" ]; then
   echo "ERROR: Driver YAML not found at $DRIVER"
   exit 1

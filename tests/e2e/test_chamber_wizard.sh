@@ -2,7 +2,8 @@
 # E2E test: chamber-wizard command
 set -e -x
 
-WORKDIR="${WORKDIR:-/Users/guillaume/P/GdB1}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="${WORKDIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 cd "$WORKDIR"
 
 OUT="/tmp/test_chamber_wizard_out.yaml"
@@ -10,7 +11,7 @@ rm -f "$OUT"
 
 # Run chamber-wizard with reference driver (non-interactive)
 pyhorn chamber-wizard \
-  --driver pyhorn_core/tests/benchmarks/hornresp_reference_driver.yaml \
+  --driver drivers/FE166NV2.yaml \
   --no-interactive \
   -o "$OUT"
 

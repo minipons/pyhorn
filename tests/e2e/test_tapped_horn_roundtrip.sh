@@ -3,15 +3,37 @@
 # Tests the full tapped-horn CLI pipeline: driver YAML + TH geometry → simulation output
 set -e -x
 
-WORKDIR="${WORKDIR:-/Users/guillaume/P/GdB1}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="${WORKDIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 cd "$WORKDIR"
 
 OUT_DIR="/tmp/test_tapped_horn_out"
 rm -rf "$OUT_DIR"
+mkdir -p "$OUT_DIR"
 
 # tapped-horn requires a driver YAML with T-S parameters and a TH geometry YAML
 DRIVER="drivers/FE166NV2.yaml"
-TH_GEOM="examples/geometry/th_example.yaml"
+TH_GEOM="$OUT_DIR/th_example.yaml"
+
+cat > "$TH_GEOM" <<'EOF'
+tap_segment_index: 2
+rear_load_type: rear_chamber
+
+front_sections:
+  - name: horn_proper
+    profile_type: exponential
+    start_area: 0.01327
+    end_area: 0.10
+    length: 1.2
+
+rear_chamber:
+  vrc: 0.035
+  lrc: 0.15
+  fr_rc: 0.0
+
+ang: 6.283185307
+n_segments: 100
+EOF
 
 if [ ! -f "$DRIVER" ]; then
   echo "ERROR: Driver YAML not found at $DRIVER"

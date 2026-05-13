@@ -2,7 +2,8 @@
 # E2E test: basic calculate command
 set -e -x
 
-WORKDIR="${WORKDIR:-/Users/guillaume/P/GdB1}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="${WORKDIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 cd "$WORKDIR"
 
 OUTDIR="/tmp/test_calculate_out"
@@ -10,8 +11,8 @@ rm -rf "$OUTDIR"
 
 # Run the calculate command
 pyhorn calculate \
-  -d pyhorn_core/tests/benchmarks/hornresp_reference_driver.yaml \
-  -h pyhorn_core/tests/benchmarks/hornresp_reference_flh.yaml \
+  -d drivers/FE166NV2.yaml \
+  -h tests/benchmarks/hornresp/hirob/fixture/horn.yaml \
   --no-plot \
   --no-plot-3d \
   --no-export-json \

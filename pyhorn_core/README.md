@@ -111,7 +111,7 @@ Computes SPL, electrical impedance, excursion, group delay, and phase for front-
 from pyhorn_core import parse_driver_specs, parse_horn_geometry, horn_response
 
 driver = parse_driver_specs("drivers/FE166NV2.yaml")
-horn   = parse_horn_geometry("examples/geometry/bk16.yaml")
+horn   = parse_horn_geometry("examples/geometry/hirob.yaml")
 result = horn_response(driver, horn, fmin=20, fmax=20000)
 
 print(result.spl_db)       # dB SPL array
@@ -210,7 +210,7 @@ Each `Section` accepts:
 ```python
 from pyhorn_core import parse_horn_geometry
 
-horn = parse_horn_geometry("examples/geometry/bk16_mk1.yaml")
+horn = parse_horn_geometry("examples/geometry/hirob.yaml")
 # horn.sections → List[Section]
 ```
 

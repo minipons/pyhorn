@@ -15,7 +15,6 @@
 
 ## Benchmark Fixture Changes
 - `tests/benchmarks/hornresp_gdb1/test_hirob_benchmark.py` for the HiroB benchmark harness
-- `tests/benchmarks/hornresp_gdb1/test_hornresp_benchmark.py`
 
 ## CLI Changes
 - `pyhorn_cli/tests/test_cli_commands.py`

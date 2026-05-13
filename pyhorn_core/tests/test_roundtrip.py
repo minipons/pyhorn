@@ -24,10 +24,13 @@ import pytest
 import yaml
 
 from pyhorn_core.config.models import DriverSpecs, HornGeometry
-from pyhorn_core.config.parser import parse_driver_specs, parse_horn_geometry, parse_horn_project
+from pyhorn_core.config.parser import (
+    parse_driver_specs,
+    parse_horn_geometry,
+    parse_horn_project,
+)
 from pyhorn_core.output.exporter import export_to_csv, export_to_frd, export_to_json
 from pyhorn_core.solver.models import horn_response
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Paths
@@ -35,12 +38,22 @@ from pyhorn_core.solver.models import horn_response
 
 TESTS_DIR = Path(__file__).parent
 DRIVER_YAML = TESTS_DIR.parent.parent / "drivers" / "FE166NV2.yaml"
-GEOM_FSX    = TESTS_DIR.parent.parent / "source" / "fsx.yaml"
+GEOM_HIROB = (
+    TESTS_DIR.parent.parent
+    / "tests"
+    / "benchmarks"
+    / "hornresp"
+    / "hirob"
+    / "fixture"
+    / "horn.yaml"
+)
+PROJECT_HIROB = TESTS_DIR.parent.parent / "projects" / "hirob.yaml"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _frd_freqs_and_spl(frd_path: Path):
     """Parse a .frd file. Returns (freqs_ndarray, spl_ndarray, phase_ndarray)."""
@@ -62,24 +75,39 @@ def _frd_freqs_and_spl(frd_path: Path):
 
 def _asdict_filtered(obj) -> dict:
     """Like dataclasses.asdict but excludes fields with init=False (private/computed fields)."""
+
+    def _serializable(value):
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, tuple):
+            return [_serializable(item) for item in value]
+        if isinstance(value, list):
+            return [_serializable(item) for item in value]
+        if isinstance(value, dict):
+            return {key: _serializable(item) for key, item in value.items()}
+        return value
+
     result = {}
     for f in obj.__class__.__dataclass_fields__.values():
         if f.init:
-            result[f.name] = getattr(obj, f.name)
+            result[f.name] = _serializable(getattr(obj, f.name))
     return result
 
 
 def _run_small_simulation():
     """Run a minimal simulation for exporter roundtrip tests. Returns SimulationResult."""
     driver = parse_driver_specs(DRIVER_YAML)
-    horn   = parse_horn_geometry(GEOM_FSX)
-    freqs  = np.array([100.0, 500.0, 1000.0, 3000.0])
-    return horn_response(freqs=freqs, driver=driver, horn=horn, compute_distortion=False)
+    horn = parse_horn_geometry(GEOM_HIROB)
+    freqs = np.array([100.0, 500.0, 1000.0, 3000.0])
+    return horn_response(
+        freqs=freqs, driver=driver, horn=horn, compute_distortion=False
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Driver YAML roundtrip
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestDriverYamlRoundtrip:
     """Verify DriverSpecs survive a YAML parse → serialize → re-parse cycle."""
@@ -92,7 +120,7 @@ class TestDriverYamlRoundtrip:
 
     def test_all_scalar_fields_preserved(self, driver_specs):
         """Every numeric / string field should round-trip unchanged."""
-        d = asdict(driver_specs)
+        d = _asdict_filtered(driver_specs)
 
         # Re-serialize via YAML
         yaml_str = yaml.safe_dump(d, sort_keys=False)
@@ -103,18 +131,25 @@ class TestDriverYamlRoundtrip:
 
         for field in DriverSpecs.__dataclass_fields__:
             original = getattr(driver_specs, field)
-            result   = getattr(rebuilt, field)
-            assert result == original, f"Field '{field}' mismatch: {result!r} != {original!r}"
+            result = getattr(rebuilt, field)
+            if isinstance(original, np.ndarray):
+                np.testing.assert_allclose(
+                    result, original, rtol=1e-12, err_msg=f"Field '{field}' mismatch"
+                )
+            else:
+                assert (
+                    result == original
+                ), f"Field '{field}' mismatch: {result!r} != {original!r}"
 
     def test_no_extra_keys_introduced(self, driver_specs):
         """Round-tripped YAML should not contain fields not in DriverSpecs."""
-        d = asdict(driver_specs)
+        d = _asdict_filtered(driver_specs)
         yaml_str = yaml.safe_dump(d, sort_keys=False)
         d2 = yaml.safe_load(yaml_str)
         rebuilt = DriverSpecs(**d2)
 
         original_fields = set(DriverSpecs.__dataclass_fields__)
-        rebuilt_fields  = set(asdict(rebuilt))
+        rebuilt_fields = set(_asdict_filtered(rebuilt))
         assert rebuilt_fields == original_fields, (
             f"Field set changed after round-trip: "
             f"added={rebuilt_fields - original_fields}, "
@@ -126,20 +161,21 @@ class TestDriverYamlRoundtrip:
 # 2. Horn geometry YAML roundtrip
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHornGeometryRoundtrip:
     """Verify HornGeometry survives a YAML parse → serialize → re-parse cycle."""
 
-    @pytest.fixture(params=["fsx", "hiro"])
+    @pytest.fixture(params=["hirob_geometry", "hirob_project"])
     def geometry(self, request):
         name = request.param
-        if name == "fsx":
-            yaml_path = GEOM_FSX
+        if name == "hirob_geometry":
+            yaml_path = GEOM_HIROB
             if not yaml_path.exists():
                 pytest.skip(f"Geometry YAML not found: {yaml_path}")
             horn = parse_horn_geometry(yaml_path)
         else:
-            # hiro is a project file — use parse_horn_project to get HornGeometry
-            project_path = TESTS_DIR.parent.parent / "projects" / "hiro.yaml"
+            # hirob is a project file — use parse_horn_project to get HornGeometry
+            project_path = PROJECT_HIROB
             if not project_path.exists():
                 pytest.skip(f"Project YAML not found: {project_path}")
             _, horn = parse_horn_project(project_path)
@@ -154,9 +190,9 @@ class TestHornGeometryRoundtrip:
         h2 = yaml.safe_load(yaml_str)
         rebuilt = HornGeometry(**h2)
 
-        assert rebuilt.throat_area  == horn.throat_area
-        assert rebuilt.mouth_area   == horn.mouth_area
-        assert rebuilt.path_length  == horn.path_length
+        assert rebuilt.throat_area == horn.throat_area
+        assert rebuilt.mouth_area == horn.mouth_area
+        assert rebuilt.path_length == horn.path_length
         assert rebuilt.profile_type == horn.profile_type
 
     def test_conical_segments_preserved(self, geometry):
@@ -203,11 +239,13 @@ class TestHornGeometryRoundtrip:
         assert rebuilt.sections is not None
         assert len(rebuilt.sections) == len(horn.sections)
         for orig_sec, new_sec in zip(horn.sections, rebuilt.sections):
-            assert new_sec.name         == orig_sec.name
+            assert new_sec.name == orig_sec.name
             assert new_sec.profile_type == orig_sec.profile_type
-            assert new_sec.length       == orig_sec.length
-            np.testing.assert_allclose(new_sec.start_area, orig_sec.start_area, rtol=1e-12)
-            np.testing.assert_allclose(new_sec.end_area,   orig_sec.end_area,   rtol=1e-12)
+            assert new_sec.length == orig_sec.length
+            np.testing.assert_allclose(
+                new_sec.start_area, orig_sec.start_area, rtol=1e-12
+            )
+            np.testing.assert_allclose(new_sec.end_area, orig_sec.end_area, rtol=1e-12)
 
     def test_coordinates_preserved(self, geometry):
         """Coordinate list should round-trip intact."""
@@ -236,12 +274,15 @@ class TestHornGeometryRoundtrip:
         if horn.driver_coord is None:
             assert rebuilt.driver_coord is None
         else:
-            np.testing.assert_allclose(rebuilt.driver_coord, horn.driver_coord, rtol=1e-12)
+            np.testing.assert_allclose(
+                rebuilt.driver_coord, horn.driver_coord, rtol=1e-12
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. FRD export roundtrip
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestFrdExportRoundtrip:
     """Verify .frd export → re-import preserves frequency points and SPL values."""
@@ -262,9 +303,9 @@ class TestFrdExportRoundtrip:
         reimport_freqs, reimport_spl, reimport_phase = _frd_freqs_and_spl(frd_path)
 
         np.testing.assert_allclose(reimport_freqs, result.freqs, rtol=1e-6)
-        np.testing.assert_allclose(reimport_spl,    result.spl,    rtol=1e-6)
+        np.testing.assert_allclose(reimport_spl, result.spl, rtol=1e-6)
         # FRD format stores 4 decimal places — roundtrip introduces ~1e-4 error
-        np.testing.assert_allclose(reimport_phase,  phase_deg,    atol=1e-3)
+        np.testing.assert_allclose(reimport_phase, phase_deg, atol=1e-3)
 
     def test_frd_spl_values_preserved(self, tmp_path):
         """SPL values written to .frd should read back within floating-point tolerance."""
@@ -315,7 +356,9 @@ class TestFrdExportRoundtrip:
         with open(frd_path, encoding="utf-8") as f:
             content = f.read()
 
-        assert content.startswith("!FRD1.0"), "FRD file must start with '!FRD1.0' header"
+        assert content.startswith(
+            "!FRD1.0"
+        ), "FRD file must start with '!FRD1.0' header"
 
     def test_frd_point_count_matches(self, tmp_path):
         """FRD file should have exactly one data line per frequency point."""
@@ -337,6 +380,7 @@ class TestFrdExportRoundtrip:
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. JSON export roundtrip
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestJsonExportRoundtrip:
     """Verify JSON export → re-import preserves all arrays and metadata."""
@@ -413,7 +457,11 @@ class TestJsonExportRoundtrip:
         with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
 
-        for key in ("particle_velocity_throat", "particle_velocity_mouth", "particle_velocity_port"):
+        for key in (
+            "particle_velocity_throat",
+            "particle_velocity_mouth",
+            "particle_velocity_port",
+        ):
             assert key in data, f"{key} should be present in JSON output"
             reimport = np.array(data[key], dtype=float)
             original = getattr(result, key)
@@ -425,7 +473,7 @@ class TestJsonExportRoundtrip:
 
         metadata = {
             "driver": "FE166NV2",
-            "geometry": "fsx",
+            "geometry": "hirob",
             "simulation_version": "1.0",
         }
 
@@ -442,7 +490,7 @@ class TestJsonExportRoundtrip:
 
         assert "metadata" in data
         assert data["metadata"]["driver"] == "FE166NV2"
-        assert data["metadata"]["geometry"] == "fsx"
+        assert data["metadata"]["geometry"] == "hirob"
 
     def test_empty_responses_roundtrips(self, tmp_path):
         """Empty responses dict should produce valid JSON and roundtrip cleanly."""

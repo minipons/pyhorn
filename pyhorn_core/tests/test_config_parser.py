@@ -1107,12 +1107,12 @@ class TestStringPathSupport:
         assert driver.fs == pytest.approx(49.6)
 
     def test_parse_horn_geometry_accepts_string_path(self):
-        horn = parse_horn_geometry("examples/geometry/fsx.yaml")
+        horn = parse_horn_geometry("tests/benchmarks/hornresp/hirob/fixture/horn.yaml")
         assert isinstance(horn, HornGeometry)
         assert horn.throat_area > 0
 
     def test_parse_horn_project_accepts_string_path(self):
-        proj, horn = parse_horn_project("projects/hiro.yaml")
+        proj, horn = parse_horn_project("projects/hirob.yaml")
         assert isinstance(proj.name, str)
         assert isinstance(horn, HornGeometry)
 
@@ -1121,12 +1121,14 @@ class TestStringPathSupport:
         assert driver.fs == pytest.approx(49.6)
 
     def test_parse_horn_geometry_still_accepts_path(self):
-        horn = parse_horn_geometry(Path("examples/geometry/fsx.yaml"))
+        horn = parse_horn_geometry(
+            Path("tests/benchmarks/hornresp/hirob/fixture/horn.yaml")
+        )
         assert horn.throat_area > 0
 
     def test_parse_horn_project_still_accepts_path(self):
-        proj, horn = parse_horn_project(Path("projects/hiro.yaml"))
-        assert proj.name == "Hiro"
+        proj, horn = parse_horn_project(Path("projects/hirob.yaml"))
+        assert proj.name == "HiroB"
 
     def test_invalid_string_path_raises_file_not_found(self):
         with pytest.raises(FileNotFoundError):

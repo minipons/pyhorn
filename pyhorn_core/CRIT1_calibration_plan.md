@@ -102,7 +102,7 @@ If Hornresp has a command-line or script export, request a batch export for all 
 Once Geopan provides the data:
 
 ### Step 1: Update Reference CSVs
-Replace the stale reference CSVs (for example, `tests/benchmarks/hornresp_gdb1/hornresp_spl.csv` for GdB1, or `tests/benchmarks/hornresp/hirob/reference/hornresp_spl.csv` for HiroB) with exports from the coupling model (same geometry, re-run in Hornresp after confirming the rear chamber is treated as a coupling chamber, not vented).
+Replace stale reference CSVs with refreshed exports from the coupling model. The retained canonical reference is `tests/benchmarks/hornresp/hirob/reference/hornresp_spl.csv` for HiroB, re-run in Hornresp after confirming the rear chamber is treated as a coupling chamber, not vented.
 
 ### Step 2: Calibrate `throat_area` in Coupling Model
 The coupling chamber model in pyhorn has a `throat_area` parameter (connection area between rear chamber and horn throat). This is the primary calibration knob. Compare pyhorn's throat impedance vs Hornresp's `Ztf` export to find the correct value.

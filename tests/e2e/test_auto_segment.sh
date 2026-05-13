@@ -2,15 +2,16 @@
 # E2E test: auto-segment command
 set -e -x
 
-WORKDIR="${WORKDIR:-/Users/guillaume/P/GdB1}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="${WORKDIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 cd "$WORKDIR"
 
 OUT="/tmp/test_auto_segment_out.yaml"
 rm -f "$OUT"
 
-# Use bk16.json from examples/geometry/
+# Use a neutral Onshape JSON test fixture rather than an examples/ asset.
 pyhorn auto-segment \
-  -i examples/geometry/bk16.json \
+  -i pyhorn_core/tests/onshape_data/bk16.json \
   -o "$OUT" \
   --n-segments 16
 

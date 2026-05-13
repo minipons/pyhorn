@@ -30,8 +30,8 @@ All simulation commands live under `pyhorn calculate`:
 Simulate the acoustic response of a horn enclosure and save results.
 
 ```bash
-pyhorn calculate calculate -d drivers/FE166NV2.yaml -p projects/hiro.yaml
-pyhorn calculate calculate -d drivers/FE166NV2.yaml -h examples/geometry/bk16.yaml
+pyhorn calculate calculate -d drivers/FE166NV2.yaml -p projects/hirob.yaml
+pyhorn calculate calculate -d drivers/FE166NV2.yaml -h tests/benchmarks/hornresp/hirob/fixture/horn.yaml
 ```
 
 Key options:
@@ -51,13 +51,13 @@ Key options:
 - `--distortion` — compute 2nd-tone distortion (single-segment horns)
 - `--voice-coil-temp` — voice coil temperature for thermal model
 - `--fdd` / `--fdd-fc` / `--fdd-dmax` — frequency-dependent directivity mode
-- `--benchmark` — run against `tests/benchmarks/hornresp_reference*.yaml`
+- `--benchmark` — run against `tests/benchmarks/hornresp/hirob/fixture/horn.yaml`
 
 ### `pyhorn calculate compare`
 Compare SPL responses of multiple horn designs on a single plot.
 
 ```bash
-pyhorn calculate compare examples/geometry/bk16.yaml examples/geometry/fsx.yaml -d drivers/FE166NV2.yaml
+pyhorn calculate compare projects/hirob.yaml tests/benchmarks/hornresp/hirob/fixture/horn.yaml -d drivers/FE166NV2.yaml
 ```
 
 Key options:
@@ -108,7 +108,7 @@ Computes minimum-length profile between throat chamber opening and horn throat. 
 Generate pyhorn segments automatically from an Onshape 2D air volume JSON export.
 
 ```bash
-pyhorn calculate auto-segment -i examples/geometry/bk16.json -o examples/geometry/bk16_imported.yaml --n-segments 20
+pyhorn calculate auto-segment -i path/to/onshape-export.json -o hirob_imported.yaml --n-segments 20
 ```
 
 Key options:
@@ -124,7 +124,7 @@ Key options:
 Diagnose SPL response for artifacts and standing-wave patterns.
 
 ```bash
-pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hiro.yaml
+pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hirob.yaml
 ```
 
 Analyses a frequency sub-range for: smoothness score, standing-wave analysis (path-length comb filtering), and artifact flagging.
@@ -163,22 +163,22 @@ These match `pyhorn calculate segment-wizard`, `pyhorn calculate chamber-wizard`
 
 ```bash
 # Simulate from a project file
-pyhorn calculate calculate -d drivers/FE166NV2.yaml -p projects/hiro.yaml
+pyhorn calculate calculate -d drivers/FE166NV2.yaml -p projects/hirob.yaml
 
 # Compare multiple horns
-pyhorn calculate compare examples/geometry/bk16.yaml examples/geometry/fsx.yaml -d drivers/FE166NV2.yaml
+pyhorn calculate compare projects/hirob.yaml tests/benchmarks/hornresp/hirob/fixture/horn.yaml -d drivers/FE166NV2.yaml
 
 # Derive T-S parameters
 pyhorn calculate derive-ts --fs 53 --qes 0.29 --qms 5.9 --vas 17.5 --re 8 --sd 124
 
 # Auto-segment from Onshape export
-pyhorn calculate auto-segment -i examples/geometry/bk16.json -o examples/geometry/bk16_imported.yaml --n-segments 20
+pyhorn calculate auto-segment -i path/to/onshape-export.json -o hirob_imported.yaml --n-segments 20
 
 # Compute throat adapter
 pyhorn calculate throat-adapter --d1 50 --d2 100 --a1 30 --a2 30 --type conical
 
 # Diagnose SPL artifacts
-pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hiro.yaml
+pyhorn calculate diagnose-spl -d drivers/FE166NV2.yaml -h examples/geometry/hirob.yaml
 
 # Optimize geometry for a driver
 pyhorn calculate optimize -d drivers/FE166NV2.yaml --fmin 80 --enclosure BLH
