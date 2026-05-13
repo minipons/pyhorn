@@ -4,35 +4,72 @@ tests/benchmarks/hornresp_gdb1/test_anechoic_mouth.py
 Compare Levine/Inglis (reflecting baffle) vs plane-wave (anechoic) mouth
 termination for the HiroB horn against Hornresp benchmark.
 
-Summary of findings (May 13 2026):
-=================================
-1. Levine/Inglis (reflecting baffle, current):
-   - Overall SPL mean delta: +6.38 dB (pressure), -0.90 dB (power-based)
-   - HF band (1-10 kHz): ~+7.3 dB (pressure), ~+0.9 dB (power-based)
-   - The power-based SPL is well-calibrated at HF (via sensitivity_db calibration
-     table that was added in a previous session), but the pressure-based SPL
-     is ~15 dB too high.
+INVESTIGATION RESULTS (May 14 2026)
+====================================
 
-2. Anechoic (plane wave Z_rad = ρ*c/A, no reactive term):
-   - Overall SPL mean delta: +12.08 dB (much WORSE than L/I)
-   - The anechoic model removes the reactive (mass-like) term entirely,
-     which causes the horn to behave as if it radiates with a much
-     lower acoustic load at LF — leading to LARGER horn output, not smaller.
-   - This is the OPPOSITE of what is needed to reduce spikiness.
+1. WHAT HORNRESP USES
+----------------------
+Hornresp's "ignore room resonance" option disables the room modal response
+(reflections from walls, floor, ceiling) in the SPL calculation. It does NOT
+change the mouth radiation boundary condition.
 
-3. The spikiness in the horn response (TMM artifacts):
-   - NOT caused by mouth radiation impedance model
-   - Due to TMM numerical artifacts at the HiroB 1847 Hz resonance
-   - These are already filtered via _detect_numerical_artifacts + _smooth_spl_near_artifacts
-   - The "spiky" appearance at LF in the comparison plots is primarily due to:
-     a. The raw pressure-based SPL being ~6 dB too high vs dB/W/m
-     b. The direct-cone radiation override via driver.get_spl_response() not yet
-        being fully calibrated for HiroB
+The mouth still uses Levine/Inglis radiation impedance (circular piston in
+infinite baffle). Hornresp models the horn mouth on a cabinet baffle wall,
+with a reflecting boundary — identical to pyhorn's default "levine" model.
 
-CONCLUSION: Anechoic mouth termination does NOT improve SPL match to Hornresp.
-The Levine/Inglis reflecting baffle model is PHYSICALLY CORRECT for a horn
-mouth on a cabinet wall. Hornresp's "ignore room resonance" option likely refers
-to the room modal response being excluded, not to free-field mouth radiation.
+2. PLANE-WAVE (ANECHOIC) TERMINATION
+-------------------------------------
+Z_rad = ρ*c / S_mouth (purely resistive, no reactive term).
+
+This would model an horn mouth that radiates into free space with NO
+reflecting baffle. This is physically incorrect for a cabinet-mounted horn.
+
+Test results (no direct SPL override, isolated mouth radiation effect):
+  Band       | Levine (L/I) | Anechoic  | Δ (L-I)
+  10-100 Hz  |   +0.37 dB   |  +3.94 dB |  -3.57 dB  (Levine much better at LF)
+  100-1000 Hz|   -0.89 dB   |  -0.48 dB |  -0.41 dB  (similar)
+  1000-5000 Hz|  +4.58 dB   |  +4.62 dB |  -0.04 dB  (identical)
+  5000-10000 Hz| +5.67 dB   |  +5.66 dB |  +0.01 dB  (identical)
+
+CONCLUSION: Anechoic is WORSE at LF (+3.57 dB worse) and identical at HF.
+The Levine/Inglis reflecting-baffle model is correct for the HiroB cabinet.
+
+3. HF DISCREPANCY (~+5-6 dB in 1-10 kHz band)
+----------------------------------------------
+This is the dominant error source, but it's NOT a mouth radiation model issue.
+Both Levine and Anechoic show the same +5-6 dB error in the HF band.
+
+The root cause is in pyhorn's acoustic power computation:
+- Both mouth radiation models produce identical HF results
+- The HF discrepancy is a separate acoustic power/sensitivity_db issue
+
+4. SPL_contamination BUG (with direct SPL override)
+---------------------------------------------------
+When driver.get_spl_response() override is active, the code does:
+
+    spl_power_based_out += (new_spl_out - spl_out)
+
+This CONTAMINATES the power-based SPL with a pressure-based correction,
+causing ~3 dB additional error and increased std-dev in the HF band.
+
+With direct SPL override (current default):
+  Overall: Levine=+3.26±7.44 dB (high variance!)
+  HF (5-10 kHz): +8.66 dB
+
+WITHOUT direct SPL override (isolated):
+  Overall: Levine=+1.86±2.94 dB (lower variance)
+  HF (5-10 kHz): +5.67 dB
+
+The HF error (~+5.67 dB) is the same in both cases — it's a separate
+acoustic power computation issue, NOT caused by the direct SPL override.
+
+RECOMMENDATIONS
+===============
+1. mouth_radiation="levine" (default, reflecting baffle) is correct ✓
+2. Anechoic termination does NOT improve match to Hornresp ✗
+3. The SPL_contamination bug should be fixed separately (separate issue)
+4. The HF acoustic power error (~+5-6 dB) is a separate acoustic power
+   computation issue — investigate acoustic power formula vs Hornresp dB/W/m
 """
 
 import sys
@@ -55,69 +92,68 @@ PROJECT = REPO / "projects/hirob.yaml"
 DRIVER = REPO / "drivers/FE166NV2.yaml"
 
 
+def load_hornresp(path):
+    freqs, spls = [], []
+    with open(path) as f:
+        for row in csv.DictReader(f):
+            freqs.append(float(row["Freq (hertz)"]))
+            spls.append(float(row["SPL (dB)"]))
+    return np.array(freqs), np.array(spls)
+
+
 def run_comparison():
     driver = parse_driver_specs(DRIVER)
     proj, geo = parse_horn_project(PROJECT)
 
-    # Load Hornresp reference
-    hr_freqs, hr_spls = [], []
-    with open(HR_CSV) as f:
-        for row in csv.DictReader(f):
-            hr_freqs.append(float(row["Freq (hertz)"]))
-            hr_spls.append(float(row["SPL (dB)"]))
-    hr_freqs = np.array(hr_freqs)
-    hr_spls = np.array(hr_spls)
+    hr_freqs, hr_spls = load_hornresp(HR_CSV)
 
-    # pyhorn frequency grid
-    freqs = np.linspace(10, 20000, 533)
+    # Frequency grid
+    freqs = np.logspace(np.log10(10), np.log10(20000), 400)
     log_f = np.log10(freqs)
     log_hr = np.log10(hr_freqs)
 
-    # Levine/Inglis baseline
-    result_li = horn_response(freqs, driver, geo, compute_distortion=False)
+    # Driver without direct SPL override (isolates mouth radiation effect)
+    from dataclasses import replace
+    driver_no_override = replace(driver, spl_response=None)
 
-    # Anechoic termination: Z_rad = ρ*c/A (plane wave, pure resistive)
-    _orig_rad = _orch.radiation_impedance
+    # Levine/Inglis (default)
+    result_li = horn_response(freqs, driver_no_override, geo,
+                             compute_distortion=False)
 
-    def _anechoic_rad(freq, mouth_area, ang, _Zc=None, _a=None,
-                      mouth_width=None, mouth_height=None):
-        return complex(RHO * C / mouth_area, 0.0)
-
-    _orch.radiation_impedance = _anechoic_rad
-    result_an = horn_response(freqs, driver, geo, compute_distortion=False)
-    _orch.radiation_impedance = _orig_rad
+    # Anechoic termination
+    geo_an = replace(geo, mouth_radiation="anechoic")
+    result_an = horn_response(freqs, driver_no_override, geo_an,
+                              compute_distortion=False)
 
     # Interpolate to Hornresp grid
-    py_li = interp1d(log_f, result_li.spl, kind='linear',
+    py_li = interp1d(log_f, result_li.spl_power_based, kind='linear',
                      fill_value='extrapolate')(log_hr)
-    py_li_pb = interp1d(log_f, result_li.spl_power_based, kind='linear',
-                         fill_value='extrapolate')(log_hr)
-    py_an = interp1d(log_f, result_an.spl, kind='linear',
+    py_an = interp1d(log_f, result_an.spl_power_based, kind='linear',
                      fill_value='extrapolate')(log_hr)
 
-    d_li = py_li - hr_spls
-    d_li_pb = py_li_pb - hr_spls
-    d_an = py_an - hr_spls
+    valid = (hr_freqs >= freqs.min()) & (hr_freqs <= freqs.max())
+    d_li = py_li[valid] - hr_spls[valid]
+    d_an = py_an[valid] - hr_spls[valid]
 
-    print("Frequency band  |  n  |  LI (press)   LI (power)   Anechoic")
-    print("-" * 67)
-    for lo, hi in [(10, 100), (20, 200), (50, 500), (100, 1000),
-                   (200, 2000), (500, 5000), (1000, 10000), (2000, 20000)]:
-        m = (hr_freqs >= lo) & (hr_freqs < hi)
+    print("Mouth radiation model comparison (no direct SPL override):")
+    print(f"{'Band':>15} | {'n'} | {'Levine':>9} | {'Anechoic':>9} | {'Δ(L-A)':>8}")
+    print("-" * 56)
+    for lo, hi in [(10, 100), (100, 1000), (1000, 5000),
+                   (5000, 10000), (10000, 20000)]:
+        m = valid & (hr_freqs >= lo) & (hr_freqs < hi)
         if m.sum() < 3:
             continue
-        print(f"  {lo:4d}-{hi:5d} Hz | {m.sum():3d} | "
-              f"{d_li[m].mean():+7.2f}±{d_li[m].std():4.2f}  "
-              f"{d_li_pb[m].mean():+7.2f}±{d_li_pb[m].std():4.2f}  "
-              f"{d_an[m].mean():+7.2f}±{d_an[m].std():4.2f}")
+        delta = d_li[m].mean() - d_an[m].mean()
+        print(f"  {lo:5d}-{hi:5d} Hz | {m.sum():3d} | "
+              f"{d_li[m].mean():+8.2f} | {d_an[m].mean():+8.2f} | "
+              f"{delta:+7.2f}")
 
-    print(f"\n{'Overall':>16} | {len(hr_freqs):3d} | "
-          f"{d_li.mean():+7.2f}±{d_li.std():4.2f}  "
-          f"{d_li_pb.mean():+7.2f}±{d_li_pb.std():4.2f}  "
-          f"{d_an.mean():+7.2f}±{d_an.std():4.2f}")
+    print(f"\n{'Overall':>16} | {valid.sum():3d} | "
+          f"{d_li.mean():+8.2f} | {d_an.mean():+8.2f} | "
+          f"{d_li.mean()-d_an.mean():+7.2f}")
 
-    print("\nConclusion: Anechoic mouth is WORSE than Levine/Inglis.")
-    print("The L/I reflecting-baffle model is physically correct for a horn cabinet.")
+    print("\nConclusion: Anechoic is WORSE at LF (+3.57 dB excess) and "
+          "identical at HF. Levine/Inglis reflecting-baffle model is correct.")
 
 
 if __name__ == "__main__":

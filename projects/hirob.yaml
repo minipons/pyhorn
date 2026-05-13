@@ -43,19 +43,23 @@ throat_chamber:
   fr_tc: 0
 
 # ── Throat adapter ─────────────────────────────────────────────────────
-# Direct coupling: AT ≈ driver Sd
-ap1: 0.0132       # m² — ~1× driver Sd (Fostex FE166NV2 Sd=132 cm²)
+# Hornresp uses AT=1.84 as a unitless scaling factor. pyhorn's ap1 is the
+# absolute throat-adapter area: ap1 = AT × throat_area = 1.84 × 0.008 = 0.01472 m².
+# This is the most important calibration fix vs Hornresp (LF response match).
+ap1: 0.01472    # m² = AT(1.84) × throat_area(0.008 m²)
 
 # ── Radiation ──────────────────────────────────────────────────────────
 # ang=0.5π sr (half-space radiation — front baffle on infinite wall)
 ang: 1.5708       # π/2 steradians
 
 # Mouth radiation boundary condition.
-# "anechoic" = plane-wave radiation (Z_rad = rho*c / S_mouth, purely resistive).
-#   Matches Hornresp's "ignore room resonance" option.  Recommended for comparing
-#   pyhorn dB/W/m SPL against Hornresp SPL data (which uses anechoic mouth).
-# "levine" = Levine/Inglis circular piston in infinite baffle (reflecting baffle).
-mouth_radiation: anechoic
+# "levine" (default): Levine/Inglis exact formula — circular piston in an infinite
+#   baffle, giving reactive + resistive radiation impedance.  This is the physically
+#   correct model for a horn mouth on a cabinet wall (reflecting baffle).
+# "anechoic": Plane-wave radiation — Z_rad = rho*c / S_mouth (purely resistive).
+#   The anechoic model does NOT match Hornresp's "ignore room resonance" — see
+#   radiation.py docstring for the full analysis.
+mouth_radiation: levine
 
 # ── Enclosure ──────────────────────────────────────────────────────────
 width: 0.224       # m — internal horn width (224 mm = 7×32 mm MDF layers)
