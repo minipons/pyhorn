@@ -45,8 +45,8 @@ dev = [
 pyhorn = "pyhorn_cli.main:run"
 
 [project.urls]
-Homepage = "https://github.com/geopan/pyhorn"
-Repository = "https://github.com/geopan/pyhorn"
+Homepage = "https://github.com/minipons/pyhorn"
+Repository = "https://github.com/minipons/pyhorn"
 
 [tool.setuptools.packages.find]
 where = ["."]

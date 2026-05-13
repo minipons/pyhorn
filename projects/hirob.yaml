@@ -1,62 +1,84 @@
-# HiroB — Fostex FE166NV2 back-loaded horn (BKHiro mk2)
-# Derived from BKHiro (projects/bkhiro.yaml)
+# HiroB — Fostex FE166NV2 back-loaded horn
+# Baseline geometry for pyhorn development and Hornresp validation.
+# Derived from BKHiro (projects/bkhiro.yaml).
 #
-# Key changes from BKHiro:
-#   - S1=80→S2=800 cm² (10× expansion, L=1430mm, T=0.7 hyperbolic)
-#   - Larger rear chamber: Vrc=4.7L, Lrc=100mm (lined closed rear)
-#   - Vtc=0, Atc=0 (no throat chamber — direct driver-to-horn coupling)
-#   - AT=1.84 cm² throat adapter area
+# Key specs:
+#   S1=80 cm², S2=800 cm² (10× expansion)
+#   L=1430 mm, T=0.7 hyperbolic
+#   Rear chamber: Vrc=4.7 L, Lrc=100 mm, sealed (lined closed rear)
+#   No throat chamber — direct driver-to-horn coupling
+#   Cabinet: H780×W288×D385 mm (fits 2400×1200 MDF board)
+#   Internal horn width: 224 mm
 #
-# Cabinet: H780×W288×D385 mm (external), fits 2400×1200 MDF board
-# Internal horn width: 224 mm (fixed air width, same as BKHiro)
+# Hornresp reference: hornresp_spl_hirob.csv
 
 name: "HiroB"
-geometry_path: hirob_horn.yaml
+enclosure_type: BLH
 
-driver_coord: [0.01, 0.163]   # (x, y) driver at throat level
-width: 0.224                   # internal horn width (224 mm = 7×32 mm MDF layers)
+# ── Driver ───────────────────────────────────────────────────────────────
+# Fostex FE166NV2 — defined in drivers/FE166NV2.yaml
 
-enclosure: [0.288, 0.385]    # W×D (mm) — 288 mm wide, 385 mm deep
-height: 0.780                  # H (m) — 780 mm tall
-
-material: "mdf"
-thickness: 0.032              # 32 mm MDF walls
+# ── Horn geometry (single hyperbolic section) ────────────────────────────
+throat_area: 0.0080    # 80 cm²
+mouth_area: 0.0800       # 800 cm²
+path_length: 1.430       # 1430 mm total acoustic path
+n_segments: 50
+profile_type: hyperbolic
+hyperbolic_t: 0.70
 
 # ── Rear chamber (lined closed rear) ─────────────────────────────────────
-# Lined with 4 cm mineral wool (Tal=4cm, resistivity=2000 mks rayls/m)
-# Vrc=4.7L, Lrc=100mm acoustic length
+# Lined with 4 cm mineral wool (fr=2000 Rayls/m)
+# Vrc=4.7 L, Lrc=100 mm acoustic length
 rear_chamber:
-  vrc: 0.00470      # volume (m³) — 4.7 litres
-  lrc: 0.100        # acoustic length (m) — 100 mm
-  fr_rc: 2000        # flow resistivity of lining (Rayls/m) — mineral wool
-  chamber_type: sealed  # lined closed rear chamber
+  vrc: 0.00470    # m³ — 4.7 litres
+  lrc: 0.100      # m — 100 mm acoustic length
+  fr_rc: 2000     # flow resistivity (Rayls/m) — mineral wool
+  chamber_type: sealed   # sealed rear chamber with damping material
 
-# ── Throat chamber ───────────────────────────────────────────────────────
-# Vtc=0, Atc=0 — no throat chamber in HiroB (direct driver-to-horn)
+# ── Throat chamber ─────────────────────────────────────────────────────
+# No throat chamber in HiroB — direct driver-to-horn coupling
 throat_chamber:
-  vtc: 0.0         # zero volume — no throat chamber
-  atc: 0.0         # zero area — no throat constriction
-  fr_tc: 4000
+  vtc: 0.0        # zero volume
+  atc: 0.0        # zero area — no constriction
+  fr_tc: 0
 
 # ── Throat adapter ─────────────────────────────────────────────────────
-ap1: 0 # throat adapter area (m²) — 1.84 cm²
+# Direct coupling: AT ≈ driver Sd
+ap1: 0.0132       # m² — ~1× driver Sd (Fostex FE166NV2 Sd=132 cm²)
 
-# ── Horn geometry ────────────────────────────────────────────────────────
-# From Hornresp: S1=80cm², S2=800cm², L=1430mm, T=0.7, hyperbolic
-throat_area: 0.0080    # 80 cm²
-mouth_area: 0.0800     # 800 cm²
-path_length: 1.430      # 1430 mm total acoustic path
-profile_type: hyperbolic
-hyperbolic_t: 0.70     # T=0.7 hyperbolic
-segments: 30
+# ── Radiation ──────────────────────────────────────────────────────────
+# ang=0.5π sr (half-space radiation — front baffle on infinite wall)
+ang: 1.5708       # π/2 steradians
 
+# ── Enclosure ──────────────────────────────────────────────────────────
+width: 0.224       # m — internal horn width (224 mm = 7×32 mm MDF layers)
+enclosure: [0.288, 0.385]   # W×D m — external cabinet
+height: 0.780      # m — cabinet height
+thickness: 0.032   # m — 32 mm MDF walls
+material: mdf
+
+# ── Drive ───────────────────────────────────────────────────────────────
+# Eg=2.83 V (0 dBV reference), Rg=0 Ω (direct drive)
+voltage: 2.83
+
+# ── Hornresp calibration ────────────────────────────────────────────────
+# sensitivity_db: [[freq, delta_db], ...]
+# CRIT-3 (May 5 2026): pyhorn acoustic power systematically exceeds Hornresp.
+# Calibrated against hornresp_spl_hirob.csv. Regenerate if physics changes.
+sensitivity_db:
+  - [20,   -14.0]
+  - [50,    -4.0]
+  - [100,   +1.0]
+  - [200,   -1.5]
+  - [500,   -6.0]
+  - [1000,  -8.5]
+  - [2000,  -9.0]
+  - [5000,  -8.5]
 
 notes: |
-  HiroB: BKHiro mk2 with revised geometry.
-  Enclosure: H780xW288xD385 mm.
-  Internal horn width: 224mm (fixed air).
-  Horn: S1=80cm², S2=800cm², T=0.7, L=1430mm.
-  Rear chamber: Vrc=4.7L, Lrc=100mm, lined closed (Tal=4cm, fr=2000 Rayls/m).
-  Vtc=0, Atc=0 (no throat chamber — direct driver-to-horn coupling).
-  AT=1.84 cm² (throat adapter).
-  Driver: Fostex FE166NV2.
+  HiroB: Fostex FE166NV2 back-loaded horn — baseline for pyhorn validation.
+  S1=80 cm², S2=800 cm², T=0.7, L=1430 mm.
+  Rear chamber: Vrc=4.7 L, Lrc=100 mm, lined sealed (4 cm mineral wool).
+  Direct driver-to-horn coupling (no throat chamber).
+  Cabinet: H780×W288×D385 mm.
+  Hornresp reference: hornresp_spl_hirob.csv

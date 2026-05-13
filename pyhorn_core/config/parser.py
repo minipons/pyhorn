@@ -275,24 +275,23 @@ def parse_horn_project(project_path: Path | str) -> tuple[HornProject, HornGeome
     project_path = Path(project_path)
     raw = _load_file(project_path)
 
-    # 'geometry_path' (or legacy 'geometry') is the path to the geometry YAML
-    # Resolve it relative to project file before consuming raw
+    # 'geometry_path' (or legacy 'geometry') is the path to the geometry YAML.
+    # If absent but the YAML contains geometry fields directly, use the project
+    # file itself as the geometry (single-file project format).
     geom_rel = raw.pop("geometry_path", raw.pop("geometry", None))
-    if not geom_rel:
-        raise ValueError(
-            "Project YAML must contain a 'geometry_path' (or 'geometry') key pointing to the geometry YAML file."
-        )
-    geom_path = (project_path.parent / geom_rel).resolve()
-
-    # Parse geometry first
-    if not geom_path.exists():
-        raise FileNotFoundError(
-            f"Geometry file not found: {geom_path}\n"
-            f"  Project file: {project_path}\n"
-            f"  Check that the 'geometry_path' path in your project YAML is correct "
-            f"and the file exists."
-        )
-    horn = parse_horn_geometry(geom_path)
+    if geom_rel:
+        geom_path = (project_path.parent / geom_rel).resolve()
+        if not geom_path.exists():
+            raise FileNotFoundError(
+                f"Geometry file not found: {geom_path}\n"
+                f"  Project file: {project_path}\n"
+                f"  Check that the 'geometry_path' path in your project YAML is correct "
+                f"and the file exists."
+            )
+        horn = parse_horn_geometry(geom_path)
+    else:
+        # Inline geometry — project YAML contains geometry fields directly
+        horn = parse_horn_geometry(raw)
 
     # Build HornProject from remaining project-only fields.
     # 'geometry_path' was already popped from raw — put it back so it survives
@@ -408,10 +407,16 @@ def _parse_sections(data: Dict[str, Any]) -> Optional[List[Section]]:
     return sections
 
 
-def parse_horn_geometry(filepath: Path | str) -> HornGeometry:
-    """Parses horn geometry from a JSON or YAML file."""
-    filepath = Path(filepath)
-    data = _load_file(filepath)
+def parse_horn_geometry(filepath: Path | str | dict) -> HornGeometry:
+    """Parses horn geometry from a JSON or YAML file, or from a dict directly."""
+    if isinstance(filepath, dict):
+        data = filepath
+        # Filter to only HornGeometry fields when called with inline project data
+        horn_fields = HornGeometry.__dataclass_fields__.keys()
+        data = {k: v for k, v in data.items() if k in horn_fields}
+    else:
+        filepath = Path(filepath)
+        data = _load_file(filepath)
     _validate_horn_geometry(data)
 
     # Handle chained profile sections (new format)
