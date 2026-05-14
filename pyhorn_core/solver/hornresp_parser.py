@@ -72,14 +72,14 @@ def parse_key_value_line(line: str) -> Optional[tuple[str, str]]:
     return m.group(1).strip(), m.group(2).strip()
 
 
-def parseHornrespProject(txt_path: str | Path) -> Dict[str, str]:
+def parseHornrespProject(txt_path: str | Path) -> Dict[str, str | list[str]]:
     """Parse a Hornresp project .txt file into a flat key→value dict.
 
     Handles pipe-section headers (|NAME|) and standalone KEY = VALUE lines.
     Duplicated keys (e.g. S2, S3 appearing twice) retain only the first-seen
     value; all values are preserved under key+'__all'.
     """
-    params: Dict[str, str] = {}
+    params: Dict[str, str | list[str]] = {}
     # Store all values for duplicate keys
     multi: Dict[str, list[str]] = {}
 
@@ -103,7 +103,10 @@ def parseHornrespProject(txt_path: str | Path) -> Dict[str, str]:
     for key, vals in multi.items():
         # Only create __all for keys with ≥2 occurrences
         if vals:  # vals contains subsequent occurrences only
-            params[key + "__all"] = [params[key]] + vals
+            _v = params[key]
+            first_val: str = _v if isinstance(_v, str) else str(_v)
+            all_vals: list[str] = [first_val] + vals
+            params[key + "__all"] = all_vals
 
     return params
 
@@ -127,7 +130,7 @@ def parseHornrespDriver(txt_path: str | Path) -> Dict[str, str]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _f(text: str) -> float:
+def _f(text: str | list[str]) -> float:
     """Parse a float from Hornresp format.
 
     Hornresp stores Cms in "N/m × 10^-6" — e.g. 1500.0E-06 means 1500 × 10^-6 N/m.
@@ -138,6 +141,8 @@ def _f(text: str) -> float:
     """
     import re
 
+    if isinstance(text, list):
+        text = text[0]
     m = re.search(r"[+-]?[\d.]+[eE+-]*\d*", text.strip())
     if m is None:
         raise ValueError(f"Cannot parse float from Hornresp value: {text!r}")
@@ -191,14 +196,14 @@ def hornresp_driver_to_specs(params: Dict[str, str]) -> DriverSpecs:
     )
 
 
-def hornresp_project_to_driver_specs(params: Dict[str, str]) -> DriverSpecs:
+def hornresp_project_to_driver_specs(params: Dict[str, str | list[str]]) -> DriverSpecs:
     """Extract driver T/S from a Hornresp project params dict.
 
     Reads the TRADITIONAL DRIVER PARAMETER VALUES section keys:
     Sd, Bl, Cms, Rms, Mmd, Le, Re, Nd, Xmax.
     """
     driver_keys = {"Sd", "Bl", "Cms", "Rms", "Mmd", "Le", "Re", "Nd", "Xmax"}
-    driver_params = {k: v for k, v in params.items() if k in driver_keys}
+    driver_params = {k: v for k, v in params.items() if k in driver_keys and isinstance(v, str)}
     if not driver_params:
         return DriverSpecs(
             fs=0.0,
@@ -241,7 +246,7 @@ def _first_nonzero(key: str, params: Dict[str, str]) -> float:
     return 0.0
 
 
-def hornresp_project_to_geometry(params: Dict[str, str]) -> HornGeometry:
+def hornresp_project_to_geometry(params: Dict[str, str | list[str]]) -> HornGeometry:
     """Convert Hornresp project params to HornGeometry (SI units).
 
     Conversions applied:

@@ -1166,8 +1166,9 @@ def _horn_response_impl(
                 f"Expected resonance spike near f ≈ {_f_spike:.0f} Hz. "
                 f"Auto-correcting to n_segments={_n_needed}."
             )
+            _profile = horn.profile_type if horn.profile_type is not None else "exponential"
             segments = discretise_profile(
-                horn.profile_type,
+                _profile,
                 horn.throat_area,
                 horn.mouth_area,
                 horn.path_length,
@@ -1446,6 +1447,8 @@ def _horn_response_impl(
 
         U_port_local = 0.0j
         A_port_local = 1.0
+        Z_vb = 0.0j
+        P_box = 0.0j
 
         if is_blh:
             ang_direct = 2.0 * np.pi

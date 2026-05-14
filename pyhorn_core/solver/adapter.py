@@ -385,7 +385,7 @@ def throat_adapter_profile(
     }
 
 
-def _area_to_diameter_array(area_array) -> "np.ndarray":
+def _area_to_diameter_array(area_array) -> "ndarray":
     """Vectorised diameter from area array."""
     import numpy as np
 

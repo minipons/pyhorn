@@ -273,7 +273,7 @@ def discretise_profile(
     segments = []
     for i in range(n_segments):
         A_avg = (A_x[i] + A_x[i + 1]) / 2.0
-        segments.append((dx, float(A_avg), 0.0))
+        segments.append((dx, float(A_avg)))
 
     return segments
 
@@ -313,7 +313,7 @@ def discretise_conical_segments(
     conical_segments: List[Tuple[float, ...]],
     width: Optional[float] = None,
     n_per_segment: int = 10,
-) -> Tuple[List[Tuple[float, ...]], List[Tuple[float, float]]]:
+) -> Tuple[List[Tuple[float, float, float]], List[Tuple[float, float]]]:
     """
     Takes a list of [dim_start, dim_end, length].
     If width is set, dims are treated as heights and converted to area.

@@ -243,6 +243,7 @@ def plot_spectrogram(
         fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
     else:
         fig = ax.get_figure()
+    assert fig is not None
 
     # Frequency display range
     if f_min is None:

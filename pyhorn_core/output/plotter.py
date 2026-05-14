@@ -278,6 +278,9 @@ def plot_simulation_results(
         ax10 = None
     elif n_rows >= 10:
         ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9, ax10 = axes[:10]
+    else:
+        ax1 = ax2 = ax3 = ax4 = ax5 = ax6 = ax7 = ax8 = ax9 = ax10 = None
+    assert ax1 is not None, "n_rows must be >= 4"
     if n_rows >= 11:
         ax11 = axes[10]
     else:
@@ -406,10 +409,11 @@ def plot_simulation_results(
                 alpha=0.3,
             )
     else:
-        # combined (default) — show total as primary, components as dashed overlays
+        if result.spl is None:
+            result.spl = np.zeros_like(freqs)
         primary_spl = result.spl
         ax1.semilogx(
-            freqs, result.spl, color=_COLORS["spl"], linewidth=0.8, label="Total"
+            freqs, primary_spl, color=_COLORS["spl"], linewidth=0.8, label="Total"
         )
 
         if result.direct_spl is not None:

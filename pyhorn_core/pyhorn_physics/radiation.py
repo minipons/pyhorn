@@ -348,7 +348,7 @@ class BemCalibrationCache:
 def _load_bem_calibration(
     path: str | Path,
     mouth_area: float,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[interp1d, interp1d]:
     """
     Load BEM calibration data and return interpolation functions.
 

@@ -11,7 +11,7 @@ that tries to use them will get a clear AttributeError.
 """
 
 try:
-    from pyhorn_segment import (
+    from pyhorn_segment import (  # type: ignore[import]
         generate_auto_segments,
         rectangular_segments_to_sections,
         _reduce_stair_points,
