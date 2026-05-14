@@ -1080,17 +1080,17 @@ def derive_ts(
         # Convert all numpy scalars to native Python floats for clean YAML output
         bl_val = float(bl)
         data = {
-            "sd": float(sd_m2),
-            "re": float(re),
-            "bl": float(bl_val),
-            "cms": float(cms),
-            "mms": float(mms),
-            "rms": float(rms),
-            "qts": float(qts),
-            "qes": float(qes),
-            "qms": float(qms),
-            "vas": float(vas_m3),
-            "fs": float(fs),
+            "sd": sd_m2,
+            "re": re,
+            "bl": bl_val,
+            "cms": cms,
+            "mms": mms,
+            "rms": rms,
+            "qts": qts,
+            "qes": qes,
+            "qms": qms,
+            "vas": vas_m3,
+            "fs": fs,
         }
         typer.echo("# Derived T-S parameters (SI units)")
         typer.echo(yaml.dump(data, default_flow_style=False, sort_keys=False).rstrip())

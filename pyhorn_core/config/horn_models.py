@@ -6,6 +6,9 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from .chamber_models import PassiveRadiator, RearChamber, SlavicBox, VentedBox
+from .driver_models import DriverSpecs
+
 
 @dataclass
 class Section:
@@ -35,9 +38,10 @@ class HornGeometry:
     vrc: float = 0.0
     lrc: float = 0.0
     fr_rc: float = 0.0
-    vented_box: Optional["VentedBox"] = None
-    passive_radiator: Optional["PassiveRadiator"] = None
-    slavbas: Optional["SlavicBox"] = None
+    vented_box: Optional[VentedBox] = None
+    passive_radiator: Optional[PassiveRadiator] = None
+    slavbas: Optional[SlavicBox] = None
+    rear_chamber: Optional[RearChamber] = None
     vtc: float = 0.0
     atc: float = 0.0
     fr_tc: float = 0.0
@@ -62,6 +66,7 @@ class HornGeometry:
     segments: List[Tuple[float, ...]] = field(default_factory=list)
     sensitivity_db: Optional[np.ndarray] = None
     bends: Optional[List[Tuple[float, float]]] = None
+    bem_calibration_path: Optional[str] = None
     _folded_plot_override: Optional[List[Tuple[float, ...]]] = field(
         default=None, init=False, repr=False
     )
@@ -189,14 +194,14 @@ class HornGeometry:
 
         return diagnostics
 
-    def folded_plot_segments(self) -> Optional[List[Tuple[float, ...]]]:
+    def folded_plot_segments(self) -> Optional[List[Tuple[float, float, float]]]:
         override = getattr(self, "_folded_plot_override", None)
         if override is not None:
             return override
         if self.rectangular_segments:
             return [(seg[1], seg[3], seg[4]) for seg in self.rectangular_segments]
         if self.conical_segments:
-            return self.conical_segments
+            return [(seg[0], seg[1], seg[2]) for seg in self.conical_segments]
         if self.sections:
             result = []
             for seg in self.sections:
@@ -220,7 +225,7 @@ class TappedHornGeometry:
     tap_segment_index: int = 2
     front_sections: List[Section] = field(default_factory=list)
     rear_sections: List[Section] = field(default_factory=list)
-    rear_chamber: Optional["RearChamber"] = None
+    rear_chamber: Optional[RearChamber] = None
     rear_load_type: str = "rear_chamber"
     ang: float = 6.283185307
     n_segments: int = 100
@@ -243,4 +248,4 @@ class CompoundChamber:
     secondary_mouth_area: float = 0.0
     secondary_mouth_ang: float = 6.283185307
     ch_dual_driver: bool = False
-    rear_driver: Optional["DriverSpecs"] = None
+    rear_driver: Optional[DriverSpecs] = None

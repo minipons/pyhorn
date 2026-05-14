@@ -349,15 +349,15 @@ def hornresp(
     data: dict = {
         "enclosure_type": enclosure_type.upper(),
         "sections": [section],
-        "n_segments": int(n_segments),
+        "n_segments": n_segments,
     }
     if lrc > 0 or vrc is not None:
         data["rear_chamber"] = {
-            "lrc": float(lrc),
-            "vrc": float(vrc if vrc is not None else lrc * throat_area),
+            "lrc": lrc,
+            "vrc": vrc if vrc is not None else lrc * throat_area,
         }
     if vtc > 0:
-        data["throat_chamber"] = {"vtc": float(vtc)}
+        data["throat_chamber"] = {"vtc": vtc}
 
     yaml_text = yaml.safe_dump(data, sort_keys=False, default_flow_style=False)
     if output_yaml is not None:

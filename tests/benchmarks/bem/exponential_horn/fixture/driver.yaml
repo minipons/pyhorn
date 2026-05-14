@@ -1,0 +1,22 @@
+# BEM Validation Benchmark Driver
+# Simple high-sensitivity driver for BEM vs TMM validation
+fs: 80.0
+qts: 0.30
+qes: 0.32
+qms: 5.0
+vas: 0.020
+re: 8.0
+bl: 6.5
+mms: 0.010
+cms: 0.000395
+rms: 0.5
+sd: 0.0095
+le: 0.0006
+xmax: 0.003
+lossy_le: false
+sensitivity_db:
+  - [200, 0.0]
+  - [500, -1.5]
+  - [1000, -3.0]
+  - [2000, -5.0]
+  - [5000, -6.0]

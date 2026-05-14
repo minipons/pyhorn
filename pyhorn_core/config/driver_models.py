@@ -34,7 +34,7 @@ class DriverSpecs:
     sensitivity_db: float = 0.0
     spl_response: Optional[Any] = None
 
-    def get_sensitivity_db(self, freqs: np.ndarray) -> np.ndarray:
+    def get_sensitivity_db(self, freqs: np.ndarray) -> Any:
         sd = self.sensitivity_db
         if isinstance(sd, np.ndarray):
             if sd.ndim == 2 and sd.shape[1] == 2:
@@ -50,7 +50,7 @@ class DriverSpecs:
             return np.asarray(sd)
         return np.full_like(freqs, sd, dtype=float)
 
-    def get_spl_response(self, freqs: np.ndarray) -> Optional[np.ndarray]:
+    def get_spl_response(self, freqs: np.ndarray) -> Optional[Any]:
         sr = self.spl_response
         if sr is None:
             return None

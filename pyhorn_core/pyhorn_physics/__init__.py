@@ -186,6 +186,8 @@ from pyhorn_core.pyhorn_physics.radiation import (
     _miki_factors,
     _circular_piston_radiation_impedance,
     radiation_impedance,
+    radiation_impedance_bem,
+    BemCalibrationCache,
     _fdd_directivity_index,
     _fdd_off_axis_spl,
     _fdd_radiation_angle,

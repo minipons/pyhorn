@@ -5,6 +5,8 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from .chamber_models import PassiveRadiator, RearChamber, SlavicBox, ThroatChamber, VentedBox
+
 
 @dataclass
 class HornProject:
@@ -19,9 +21,9 @@ class HornProject:
     material: Optional[str] = None
     notes: Optional[str] = None
     fold_plot_segments: Optional[List[Tuple[float, ...]]] = None
-    rear_chamber: Optional["RearChamber"] = None
-    throat_chamber: Optional["ThroatChamber"] = None
-    vented_box: Optional["VentedBox"] = None
-    passive_radiator: Optional["PassiveRadiator"] = None
-    slavbas: Optional["SlavicBox"] = None
+    rear_chamber: Optional[RearChamber] = None
+    throat_chamber: Optional[ThroatChamber] = None
+    vented_box: Optional[VentedBox] = None
+    passive_radiator: Optional[PassiveRadiator] = None
+    slavbas: Optional[SlavicBox] = None
     sensitivity_db: Optional[np.ndarray] = None

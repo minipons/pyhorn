@@ -409,7 +409,7 @@ def parse_horn_project(project_path: Path | str) -> tuple[HornProject, HornGeome
         horn.width = proj.width
     # Apply project-level enclosure_dims override (for 2D schematic)
     if proj.enclosure is not None:
-        horn.enclosure_dims = tuple(proj.enclosure)
+        horn.enclosure_dims = cast(tuple[float, float], tuple(proj.enclosure))
     # Apply project-level sensitivity_db calibration for dB/W/m SPL
     if proj.sensitivity_db is not None:
         horn.sensitivity_db = proj.sensitivity_db

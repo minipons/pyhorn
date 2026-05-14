@@ -1316,6 +1316,7 @@ def _horn_response_impl(
             mouth_width=mouth_w,
             mouth_height=mouth_h,
             mouth_radiation=horn.mouth_radiation,
+            calibration_path=horn.bem_calibration_path,
         )
 
         Z_throat = (T[0, 0] * Zrad + T[0, 1]) / (T[1, 0] * Zrad + T[1, 1])

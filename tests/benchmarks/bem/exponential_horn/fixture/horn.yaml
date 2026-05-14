@@ -1,0 +1,35 @@
+# BEM Validation Benchmark: Exponential Horn
+# Simple exponential horn geometry designed for BEM vs TMM comparison
+#
+# This is a synthetic reference: the BEM SPL data was computed using
+# Levine/Inglis analytical piston model (which BEM would also produce for
+# a simple cylindrical pipe). Real BEM validation would use bempp-cl
+# or BEMPPSolver output.
+name: "BEM Validation Exponential Horn"
+enclosure_type: BLH
+throat_area: 0.00050
+mouth_area: 0.0100
+path_length: 0.300
+n_segments: 150
+profile_type: exponential
+rear_chamber:
+  vrc: 0.00050
+  lrc: 0.050
+  fr_rc: 5000
+  chamber_type: coupling
+throat_chamber:
+  vtc: 0.0
+  atc: 0.0
+  fr_tc: 0
+ap1: 0.00050
+ang: 1.5708
+mouth_radiation: bem
+bem_calibration_path: tests/benchmarks/bem/exponential_horn/calibration/mouth_z.json
+voltage: 2.83
+notes: |
+  Simple exponential horn for BEM validation.
+  Throat: 7mm radius (area = 50 cm²)
+  Mouth: 56mm radius (area = 100 cm²)
+  Path length: 300mm
+  This geometry is simple enough to mesh for BEM and captures
+  the key TMM plane-wave breakdown at ka > 1.

@@ -92,9 +92,12 @@ References
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Tuple
 import numpy as np
 from scipy.special import jv, struve
+from scipy.interpolate import interp1d
 
 if TYPE_CHECKING:
     from pyhorn_core.config.driver_models import DriverSpecs
@@ -217,10 +220,11 @@ def radiation_impedance(
     mouth_width: float | None = None,
     mouth_height: float | None = None,
     mouth_radiation: str = "levine",
+    calibration_path: str | None = None,
 ) -> complex:
     """
     Radiation impedance of a circular or rectangular piston in a baffle,
-    or a plane-wave anechoic termination.
+    or a plane-wave anechoic termination, or a BEM-calibrated model.
 
     Uses Levine/Inglis (full Bessel/Struve) for ka ≥ 0.1, Rayleigh
     approximation for ka < 0.1.  Rectangular piston uses the Morse & Ingard
@@ -232,20 +236,23 @@ def radiation_impedance(
         "levine" — Levine/Inglis circular piston in infinite baffle.
         "anechoic" — plane-wave radiation (Z_rad = rho*c / S_mouth, purely resistive).
         Use "anechoic" when comparing against Hornresp with "ignore room resonance".
+        "bem" — BEM-calibrated radiation impedance from pre-computed calibration data.
+        Requires calibration_path to be set. Captures full 3D wave physics
+        (diffraction, edge effects) that Levine/Inglis misses.
+    calibration_path : str, optional
+        Path to BEM calibration JSON file. Required when mouth_radiation="bem".
     """
     k = 2 * np.pi * freq / C
 
     if mouth_radiation == "anechoic":
-        # Anechoic termination: pure plane-wave radiation resistance.
-        # Z_rad = ρ * c / S  (real only, no mass reactance).
-        # No angular (2π/ang) factor — this is the intrinsic characteristic
-        # impedance of the pipe/horn at the mouth plane, not a directional
-        # coupling factor.  Matches Hornresp "ignore room resonance" which
-        # uses a purely resistive mouth termination.
         if mouth_area <= 0.0:
             return 0.0j
         R_anechoic = Z0 / mouth_area
         return R_anechoic + 0.0j
+
+    if mouth_radiation == "bem":
+        return radiation_impedance_bem(freq, mouth_area, ang, calibration_path or "")
+
     if mouth_area <= 0.0:
         return 0.0j
     Zc = _Zc if _Zc is not None else Z0 / mouth_area
@@ -261,6 +268,190 @@ def radiation_impedance(
         return R_rad + 1j * X_rad
     a = _a if _a is not None else np.sqrt(mouth_area / np.pi)
     return _circular_piston_radiation_impedance(freq, mouth_area, ang, Zc, a)
+
+
+# ─── BEM-Calibrated Radiation Impedance ─────────────────────────────────────────
+
+
+class BemCalibrationCache:
+    """LRU cache for BEM calibration data files.
+
+    Loads a BEM calibration JSON file on first use and caches it.
+    Calibration data maps frequency (Hz) → complex radiation impedance (Z_rad).
+    """
+
+    _cache: dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+
+    @classmethod
+    def load(
+        cls,
+        path: str | Path,
+        mouth_area: float,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Load BEM calibration data from a JSON file.
+
+        Parameters
+        ----------
+        path : str or Path
+            Path to the BEM calibration JSON file.
+            Expected format: {"freqs": [...], "z_real": [...], "z_imag": [...]}
+            Values are for the specific mouth geometry (area, shape, baffle).
+        mouth_area : float
+            Mouth area in m² (stored in the calibration metadata for validation).
+
+        Returns
+        -------
+        Tuple of (freqs, z_real, z_imag) arrays.
+        """
+        key = str(path)
+        if key in cls._cache:
+            cached_f, cached_r, cached_i = cls._cache[key]
+            cached_area = cls._get_area_from_cache(key)
+            if abs(cached_area - mouth_area) < 1e-12:
+                return cached_f, cached_r, cached_i
+            cls._cache.pop(key, None)
+
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(
+                f"BEM calibration file not found: {p}. "
+                f"Run bem_generate_calibration.py to create it."
+            )
+
+        with open(p) as f:
+            data = json.load(f)
+
+        freqs = np.array(data["freqs"], dtype=float)
+        z_real = np.array(data["z_real"], dtype=float)
+        z_imag = np.array(data["z_imag"], dtype=float)
+
+        cls._cache[key] = (freqs, z_real, z_imag)
+        cls._set_area_in_cache(key, mouth_area)
+        return freqs, z_real, z_imag
+
+    @classmethod
+    def _get_area_from_cache(cls, key: str) -> float:
+        area_key = key + "_area"
+        return getattr(cls, area_key, 0.0)
+
+    @classmethod
+    def _set_area_in_cache(cls, key: str, area: float) -> None:
+        setattr(cls, key + "_area", area)
+
+    @classmethod
+    def clear(cls) -> None:
+        """Clear the cache (useful for testing)."""
+        cls._cache.clear()
+
+
+def _load_bem_calibration(
+    path: str | Path,
+    mouth_area: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load BEM calibration data and return interpolation functions.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to BEM calibration JSON file.
+    mouth_area : float
+        Mouth area in m² (for cache key validation).
+
+    Returns
+    -------
+    Tuple of (interp_real, interp_imag) interpolation functions.
+    """
+    freqs, z_real, z_imag = BemCalibrationCache.load(path, mouth_area)
+
+    sort_idx = np.argsort(freqs)
+    freqs_s = freqs[sort_idx]
+    zr_s = z_real[sort_idx]
+    zi_s = z_imag[sort_idx]
+
+    interp_real = interp1d(
+        np.log10(freqs_s),
+        zr_s,
+        kind="linear",
+        bounds_error=False,
+        fill_value=(zr_s[0], zr_s[-1]),
+        assume_sorted=True,
+    )
+    interp_imag = interp1d(
+        np.log10(freqs_s),
+        zi_s,
+        kind="linear",
+        bounds_error=False,
+        fill_value=(zi_s[0], zi_s[-1]),
+        assume_sorted=True,
+    )
+    return interp_real, interp_imag
+
+
+def radiation_impedance_bem(
+    freq: float,
+    mouth_area: float,
+    ang: float,
+    calibration_path: str,
+) -> complex:
+    """
+    Radiation impedance from BEM calibration data.
+
+    Loads pre-computed BEM radiation impedance for the horn mouth geometry
+    and interpolates to the requested frequency.  BEM captures full 3D wave
+    physics including diffraction at the mouth edges — superior to the
+    Levine/Inglis analytical piston which assumes an infinite baffle.
+
+    The calibration file is geometry-specific: it must be generated for the
+    exact mouth area and shape of the horn being simulated.  Generate
+    calibration files using ``scripts/bem_generate_calibration.py`` with
+    output from bempp-cl or BEMPPSolver.
+
+    Parameters
+    ----------
+    freq : float
+        Frequency in Hz.
+    mouth_area : float
+        Mouth area in m² (used for cache validation).
+    ang : float
+        Baffle angle in steradians (π = half-space, 2π = full-space).
+        The BEM calibration should match this baffle condition.
+        Currently passed through but not used to scale BEM values
+        (the calibration data already encodes the baffle geometry).
+    calibration_path : str
+        Path to the BEM calibration JSON file.
+
+    Returns
+    -------
+    complex
+        BEM-computed radiation impedance Z_rad = R_rad + j·X_rad in
+        Pa·s/m³ (acoustic ohms).
+
+    Raises
+    ------
+    FileNotFoundError
+        If the calibration file does not exist.
+    ValueError
+        If the calibration file is malformed.
+
+    References
+    ----------
+    Burton-Miller BEM: Ch.31, "The Burton and Miller algorithm for exterior
+        acoustic problems", F. Ihlenburg (1998).
+    bempp-cl: Specification in horn-simulation-report.md §3.
+    """
+    if calibration_path is None or calibration_path == "":
+        raise ValueError(
+            "bem_calibration_path must be set in horn.yaml "
+            "when mouth_radiation='bem'"
+        )
+
+    interp_real, interp_imag = _load_bem_calibration(calibration_path, mouth_area)
+
+    zr = float(interp_real(np.log10(max(freq, 1e-6))))
+    zi = float(interp_imag(np.log10(max(freq, 1e-6))))
+    return complex(zr, zi)
 
 
 # ─── Frequency-Dependent Directivity (FDD) ────────────────────────────────────
